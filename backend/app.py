@@ -22,6 +22,14 @@ def index():
 def health():
     return jsonify({"status": "ok"})
 
+@app.route('/pending')
+def pending():
+    return send_from_directory('../frontend/templates', 'pending.html')
+
+@app.route('/signup')
+def signup():
+    return send_from_directory('../frontend/templates', 'signup.html')
+
 if __name__ == '__main__':
     init_db()
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

@@ -11,9 +11,10 @@ def register():
     data = request.get_json()
     full_name = data.get('full_name', '').strip()
     matricule = data.get('matricule', '').strip()
+    email     = data.get('email', '').strip()
     password  = data.get('password', '').strip()
 
-    if not full_name or not matricule or not password:
+    if not full_name or not matricule or not email or not password:
         return jsonify({"error": "All fields are required"}), 400
 
     conn = get_connection()
@@ -22,11 +23,16 @@ def register():
     cursor.execute("SELECT id FROM users WHERE matricule = ?", (matricule,))
     if cursor.fetchone():
         conn.close()
-        return jsonify({"error": "Matricule already exists"}), 409
+        return jsonify({"error": "Matricule already registered"}), 409
+
+    cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({"error": "Email already registered"}), 409
 
     cursor.execute(
-        "INSERT INTO users (full_name, matricule, password, role, status) VALUES (?, ?, ?, ?, ?)",
-        (full_name, matricule, hash_password(password), 'user', 'pending')
+        "INSERT INTO users (full_name, matricule, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?)",
+        (full_name, matricule, email, hash_password(password), 'user', 'pending')
     )
     conn.commit()
     conn.close()
@@ -37,23 +43,23 @@ def register():
 @auth_bp.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
-    matricule = data.get('matricule', '').strip()
-    password  = data.get('password', '').strip()
+    email    = data.get('email', '').strip()
+    password = data.get('password', '').strip()
 
-    if not matricule or not password:
-        return jsonify({"error": "Matricule and password are required"}), 400
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
 
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE matricule = ?", (matricule,))
+    cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
     user = cursor.fetchone()
     conn.close()
 
     if not user:
-        return jsonify({"error": "Invalid matricule or password"}), 401
+        return jsonify({"error": "Invalid email or password"}), 401
 
     if user['password'] != hash_password(password):
-        return jsonify({"error": "Invalid matricule or password"}), 401
+        return jsonify({"error": "Invalid email or password"}), 401
 
     if user['status'] == 'pending':
         return jsonify({"error": "Your account is pending approval."}), 403
@@ -61,8 +67,8 @@ def login():
     if user['status'] == 'blocked':
         return jsonify({"error": "Your account has been blocked. Contact admin."}), 403
 
-    session['user_id'] = user['id']
-    session['role']    = user['role']
+    session['user_id']   = user['id']
+    session['role']      = user['role']
     session['matricule'] = user['matricule']
     session['full_name'] = user['full_name']
 
@@ -70,8 +76,7 @@ def login():
         "message": "Login successful",
         "role": user['role'],
         "full_name": user['full_name'],
-        "matricule": user['matricule'],
-        "redirect": "/admin" if user['role'] == 'admin' else "/dashboard"
+        "redirect": "/admin" if user['role'] == 'admin' else "/home"
     }), 200
 
 

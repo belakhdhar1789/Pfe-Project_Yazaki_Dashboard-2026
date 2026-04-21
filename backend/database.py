@@ -20,6 +20,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             full_name TEXT NOT NULL,
             matricule TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE,
             password TEXT NOT NULL,
             role TEXT DEFAULT 'user',
             status TEXT DEFAULT 'pending',
@@ -133,10 +134,9 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
         cursor.execute(
-            "INSERT INTO users (full_name, matricule, password, role, status) VALUES (?, ?, ?, ?, ?)",
-            ("Admin Yazaki", "admin001", hash_password("admin123"), "admin", "active")
+            "INSERT INTO users (full_name, matricule, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?)",
+            ("Admin Yazaki", "admin001", "admin@yazaki.com", hash_password("admin123"), "admin", "active")
         )
-
     conn.commit()
     conn.close()
     print("✅ Database initialized successfully")
