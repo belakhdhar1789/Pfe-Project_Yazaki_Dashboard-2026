@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel — Yazaki</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; }
+
+    /* ── Left sidebar ── */
+    #sidebar {
+      position: fixed; top: 0; left: -320px; width: 320px; height: 100vh;
+      background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+      box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+      border-right: 4px solid #dc2626;
+      transition: left 0.3s ease; z-index: 50;
+      display: flex; flex-direction: column;
+    }
+    #sidebar.open { left: 0; }
+    #sidebar-trigger {
+      position: fixed; top: 0; left: 0; width: 16px; height: 100vh;
+      background: linear-gradient(to bottom, #dc2626, #111);
+      z-index: 51; cursor: pointer;
+    }
+
+    /* ── Main content (shifts right when sidebar open) ── */
+    #main {
+      margin-left: 16px;
+      height: 100vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Table styles ── */
+    th { white-space: nowrap; }
+    .status-badge {
+      padding: 3px 10px; border-radius: 9999px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+    }
+    .badge-pending  { background:#facc15; color:#111; }
+    .badge-active   { background:#16a34a; color:#fff; }
+    .badge-blocked  { background:#dc2626; color:#fff; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-white">
+
+  <!-- ── Hover trigger strip ── -->
+  <div id="sidebar-trigger"
+    onmouseenter="openSidebar()"
+    title="Open sidebar">
+  </div>
+
+  <!-- ── Left Sidebar ── -->
+  <div id="sidebar" onmouseleave="closeSidebar()">
+
+    <!-- Logo + title -->
+    <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-4 m-4 text-center shadow-lg">
+      <div class="bg-white rounded-lg p-2 flex items-center justify-center h-16 mb-3">
+        <img src="/static/yazaki-logo.png" alt="Yazaki" class="h-full object-contain"/>
+      </div>
+      <h2 class="text-xl font-bold" id="sb-title">Admin Panel</h2>
+      <p class="text-xs mt-1 opacity-90">Gestion Administrative</p>
+    </div>
+
+    <!-- Menu buttons -->
+    <div class="flex-1 p-5 space-y-3">
+      <button id="btn-users" onclick="switchTab('Users')"
+        class="w-full border-2 rounded-xl p-4 text-center font-bold text-base transition-all duration-200 hover:shadow-lg
+               bg-gradient-to-r from-red-600 to-red-700 text-white border-black shadow-md">
+        <span id="label-users">Users</span>
+      </button>
+      <button id="btn-history" onclick="switchTab('History')"
+        class="w-full border-2 rounded-xl p-4 text-center font-bold text-base transition-all duration-200 hover:shadow-lg
+               bg-white text-gray-800 border-gray-300 hover:border-red-600 hover:text-red-600">
+        <span id="label-history">History</span>
+      </button>
+    </div>
+
+    <!-- Language toggle -->
+    <div class="p-5 border-t-2 border-gray-300">
+      <p class="text-gray-800 text-sm font-bold mb-2 text-center">Language / Langue</p>
+      <div class="flex gap-2">
+        <button id="lang-en" onclick="setLang('en')"
+          class="flex-1 px-3 py-2 rounded-lg font-semibold text-xs bg-red-600 text-white">
+          English
+        </button>
+        <button id="lang-fr" onclick="setLang('fr')"
+          class="flex-1 px-3 py-2 rounded-lg font-semibold text-xs bg-gray-200 text-gray-700 hover:bg-gray-300">
+          Français
+        </button>
+      </div>
+    </div>
+
+    <!-- Admin info -->
+    <div class="p-5 border-t-2 border-gray-300 text-center">
+      <p class="text-xs text-gray-600 font-semibold mb-1" id="sb-logged-label">Logged in as</p>
+      <p class="font-bold text-gray-900" id="sb-admin-name">Admin</p>
+      <p class="text-sm text-gray-600" id="sb-admin-mat">Matricule: —</p>
+    </div>
+  </div>
+
+  <!-- ── Main Content ── -->
+  <div id="main">
+
+    <!-- Top bar -->
+    <div class="bg-white px-6 pt-4 pb-3 flex-shrink-0">
+      <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl px-6 py-4 text-center shadow-lg">
+        <h1 class="text-2xl font-bold" id="main-title">Admin Space</h1>
+        <p class="text-xs mt-1 opacity-90" id="main-subtitle">Manage access and permissions</p>
+      </div>
+    </div>
+
+    <!-- Scrollable body -->
+    <div class="flex-1 overflow-auto px-6 pb-6">
+
+      <!-- ── USERS TAB ── -->
+      <div id="tab-users">
+        <!-- Search -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-5 border border-gray-200 flex items-center gap-3">
+          <label class="font-bold text-gray-900 whitespace-nowrap" id="lbl-search">Search:</label>
+          <input id="user-search" type="text" oninput="filterUsers()"
+            placeholder="Search by name or matricule..."
+            class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none text-sm"/>
+          <button onclick="clearSearch()" class="px-3 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-400 transition-colors">
+            Clear
+          </button>
+        </div>
+
+        <!-- Users table -->
+        <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto shadow-sm">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-100 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="th-name">Full Name</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="th-mat">Matricule</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="th-email">Email</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="th-status">Status</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="th-role">Role</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="th-access">Access Mode</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="th-perms">Page Permissions</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="th-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">Loading users…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── HISTORY TAB ── -->
+      <div id="tab-history" class="hidden">
+        <!-- Search -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-5 border border-gray-200 flex items-center gap-3">
+          <label class="font-bold text-gray-900 whitespace-nowrap" id="lbl-hsearch">Search:</label>
+          <input id="history-search" type="text" oninput="filterHistory()"
+            placeholder="Search by name or matricule..."
+            class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none text-sm"/>
+          <button onclick="clearHistorySearch()" class="px-3 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-400 transition-colors">
+            Clear
+          </button>
+        </div>
+
+        <!-- History table -->
+        <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto shadow-sm">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-100 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="hth-name">Full Name</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="hth-mat">Matricule</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="hth-status">Status</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="hth-role">Role</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="hth-created">Created At</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="hth-lastlogin">Last Login</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="hth-lastact">Last Activity</th>
+                <th class="px-4 py-3 text-left font-bold text-gray-900" id="hth-export">Export</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- end scrollable body -->
+  </div><!-- end main -->
+
+  <!-- ── Toast notification ── -->
+  <div id="toast" class="fixed bottom-6 right-6 hidden z-50">
+    <div class="bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-semibold flex items-center gap-2">
+      <span id="toast-msg"></span>
+    </div>
+  </div>
+
+  <script>
+    // ── State ────────────────────────────────────────────────
+    let lang = localStorage.getItem('language') || 'en';
+    let activeTab = 'Users';
+    let allUsers = [];
+    let currentAdmin = null;
+
+    const PAGE_LABELS = {
+      handbook:        'Handbook',
+      dashboard:       'Dashboard',
+      dataCollection:  'Data Collection',
+      overviewBatch:   'Overview Batch',
+      table:           'Table',
+      revisionHistory: 'Revision History',
+    };
+    const PAGE_KEYS = Object.keys(PAGE_LABELS);
+
+    // ── i18n ──────────────────────────────────────────────────
+    const T = {
+      en: {
+        adminPanel:'Admin Panel', loggedAs:'Logged in as', users:'Users', history:'History',
+        mainTitle:'Admin Space', mainSub:'Manage access and permissions',
+        search:'Search:', searchPh:'Search by name or matricule...', clear:'Clear',
+        fullName:'Full Name', matricule:'Matricule', email:'Email', status:'Status',
+        role:'Role', accessMode:'Access Mode', pagePerms:'Page Permissions', actions:'Actions',
+        approve:'Approve', block:'Block', unblock:'Unblock', delete:'Delete',
+        createdAt:'Created At', lastLogin:'Last Login', lastActivity:'Last Activity', export:'Export',
+        confirmDel:'Delete this user permanently?',
+        savePerms:'Permissions saved', modeChanged:'Access mode updated',
+      },
+      fr: {
+        adminPanel:'Panneau Admin', loggedAs:'Connecté en tant que', users:'Utilisateurs', history:'Historique',
+        mainTitle:'Espace Admin', mainSub:'Gérer les accès et permissions',
+        search:'Rechercher:', searchPh:'Rechercher par nom ou matricule...', clear:'Effacer',
+        fullName:'Nom Complet', matricule:'Matricule', email:'Email', status:'Statut',
+        role:'Rôle', accessMode:"Mode d'Accès", pagePerms:'Permissions de Page', actions:'Actions',
+        approve:'Approuver', block:'Bloquer', unblock:'Débloquer', delete:'Supprimer',
+        createdAt:'Créé le', lastLogin:'Dernière Connexion', lastActivity:'Dernière Activité', export:'Exporter',
+        confirmDel:'Supprimer cet utilisateur définitivement?',
+        savePerms:'Permissions sauvegardées', modeChanged:"Mode d'accès mis à jour",
+      }
+    };
+    function t(key) { return (T[lang] || T.en)[key] || key; }
+
+    // ── Sidebar ───────────────────────────────────────────────
+    function openSidebar()  { document.getElementById('sidebar').classList.add('open'); }
+    function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); }
+
+    // ── Language ──────────────────────────────────────────────
+    function setLang(l) {
+      lang = l;
+      localStorage.setItem('language', l);
+      document.getElementById('lang-en').className = 'flex-1 px-3 py-2 rounded-lg font-semibold text-xs ' +
+        (l==='en' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300');
+      document.getElementById('lang-fr').className = 'flex-1 px-3 py-2 rounded-lg font-semibold text-xs ' +
+        (l==='fr' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300');
+      applyTranslations();
+    }
+    function applyTranslations() {
+      document.getElementById('sb-title').textContent      = t('adminPanel');
+      document.getElementById('sb-logged-label').textContent = t('loggedAs');
+      document.getElementById('label-users').textContent   = t('users');
+      document.getElementById('label-history').textContent = t('history');
+      document.getElementById('main-title').textContent    = t('mainTitle');
+      document.getElementById('main-subtitle').textContent = t('mainSub');
+      document.getElementById('lbl-search').textContent    = t('search');
+      document.getElementById('lbl-hsearch').textContent   = t('search');
+      document.getElementById('user-search').placeholder   = t('searchPh');
+      document.getElementById('history-search').placeholder= t('searchPh');
+      // Table headers
+      document.getElementById('th-name').textContent    = t('fullName');
+      document.getElementById('th-mat').textContent     = t('matricule');
+      document.getElementById('th-email').textContent   = t('email');
+      document.getElementById('th-status').textContent  = t('status');
+      document.getElementById('th-role').textContent    = t('role');
+      document.getElementById('th-access').textContent  = t('accessMode');
+      document.getElementById('th-perms').textContent   = t('pagePerms');
+      document.getElementById('th-actions').textContent = t('actions');
+      document.getElementById('hth-name').textContent   = t('fullName');
+      document.getElementById('hth-mat').textContent    = t('matricule');
+      document.getElementById('hth-status').textContent = t('status');
+      document.getElementById('hth-role').textContent   = t('role');
+      document.getElementById('hth-created').textContent  = t('createdAt');
+      document.getElementById('hth-lastlogin').textContent= t('lastLogin');
+      document.getElementById('hth-lastact').textContent  = t('lastActivity');
+      document.getElementById('hth-export').textContent   = t('export');
+      // Re-render tables
+      renderUsersTable(filterByQuery(allUsers, document.getElementById('user-search').value));
+      renderHistoryTable(filterByQuery(allUsers, document.getElementById('history-search').value));
+    }
+
+    // ── Tab switching ────────────────────────────────────────
+    function switchTab(tab) {
+      activeTab = tab;
+      document.getElementById('tab-users').classList.toggle('hidden', tab !== 'Users');
+      document.getElementById('tab-history').classList.toggle('hidden', tab !== 'History');
+      const btnU = document.getElementById('btn-users');
+      const btnH = document.getElementById('btn-history');
+      if (tab === 'Users') {
+        btnU.className = 'w-full border-2 rounded-xl p-4 text-center font-bold text-base transition-all duration-200 bg-gradient-to-r from-red-600 to-red-700 text-white border-black shadow-md';
+        btnH.className = 'w-full border-2 rounded-xl p-4 text-center font-bold text-base transition-all duration-200 bg-white text-gray-800 border-gray-300 hover:border-red-600 hover:text-red-600';
+      } else {
+        btnH.className = 'w-full border-2 rounded-xl p-4 text-center font-bold text-base transition-all duration-200 bg-gradient-to-r from-red-600 to-red-700 text-white border-black shadow-md';
+        btnU.className = 'w-full border-2 rounded-xl p-4 text-center font-bold text-base transition-all duration-200 bg-white text-gray-800 border-gray-300 hover:border-red-600 hover:text-red-600';
+      }
+    }
+
+    // ── Toast ────────────────────────────────────────────────
+    let toastTimer;
+    function showToast(msg, color='bg-gray-900') {
+      clearTimeout(toastTimer);
+      const el = document.getElementById('toast');
+      const inner = el.querySelector('div');
+      inner.className = `${color} text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-semibold flex items-center gap-2`;
+      document.getElementById('toast-msg').textContent = msg;
+      el.classList.remove('hidden');
+      toastTimer = setTimeout(() => el.classList.add('hidden'), 2800);
+    }
+
+    // ── Fetch users from API ─────────────────────────────────
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/auth/get_users');
+        if (!res.ok) throw new Error('Failed to load users');
+        allUsers = await res.json();
+        renderUsersTable(allUsers);
+        renderHistoryTable(allUsers);
+      } catch(e) {
+        document.getElementById('users-tbody').innerHTML =
+          `<tr><td colspan="8" class="px-4 py-8 text-center text-red-500">Error loading users: ${e.message}</td></tr>`;
+      }
+    }
+
+    // ── Filter helpers ────────────────────────────────────────
+    function filterByQuery(users, q) {
+      if (!q) return users;
+      const lo = q.toLowerCase();
+      return users.filter(u =>
+        (u.full_name||'').toLowerCase().includes(lo) ||
+        (u.matricule||'').toLowerCase().includes(lo) ||
+        (u.email||'').toLowerCase().includes(lo)
+      );
+    }
+    function filterUsers()   { renderUsersTable(filterByQuery(allUsers, document.getElementById('user-search').value)); }
+    function filterHistory() { renderHistoryTable(filterByQuery(allUsers, document.getElementById('history-search').value)); }
+    function clearSearch()   { document.getElementById('user-search').value=''; filterUsers(); }
+    function clearHistorySearch() { document.getElementById('history-search').value=''; filterHistory(); }
+
+    // ── Render Users table ────────────────────────────────────
+    function renderUsersTable(users) {
+      const tbody = document.getElementById('users-tbody');
+      if (!users.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">No users found.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = '';
+      users.forEach(user => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-gray-100 hover:bg-gray-50 transition-colors';
+        tr.dataset.userId = user.id;
+
+        // Full Name
+        tr.innerHTML += `<td class="px-4 py-3 font-medium">${esc(user.full_name)}</td>`;
+        // Matricule
+        tr.innerHTML += `<td class="px-4 py-3 text-gray-600">${esc(user.matricule)}</td>`;
+        // Email
+        tr.innerHTML += `<td class="px-4 py-3 text-gray-600 text-xs">${esc(user.email)}</td>`;
+        // Status
+        const bClass = {pending:'badge-pending',active:'badge-active',blocked:'badge-blocked'}[user.status] || 'badge-pending';
+        tr.innerHTML += `<td class="px-4 py-3"><span class="status-badge ${bClass}">${user.status}</span></td>`;
+        // Role
+        tr.innerHTML += `<td class="px-4 py-3">${esc(user.role)}</td>`;
+        // Access Mode
+        const isManual = (user.access_mode !== 'auto');
+        tr.innerHTML += `
+          <td class="px-4 py-3">
+            <div class="flex flex-col gap-1">
+              <button onclick="setAccessMode(${user.id}, 'manual')"
+                class="px-3 py-1 rounded text-xs font-semibold transition-colors ${isManual ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}">
+                Manual
+              </button>
+              <button onclick="setAccessMode(${user.id}, 'auto')"
+                class="px-3 py-1 rounded text-xs font-semibold transition-colors ${!isManual ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}">
+                Auto
+              </button>
+            </div>
+          </td>`;
+        // Page Permissions
+        const perms = user.permissions || [];
+        let permsHtml = '<td class="px-4 py-3"><div class="space-y-1 text-xs">';
+        PAGE_KEYS.forEach(key => {
+          const checked = perms.includes(key) ? 'checked' : '';
+          permsHtml += `
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" ${checked} onchange="togglePerm(${user.id},'${key}',this.checked)"
+                class="w-3.5 h-3.5 accent-red-600"/>
+              <span>${PAGE_LABELS[key]}</span>
+            </label>`;
+        });
+        permsHtml += '</div></td>';
+        tr.innerHTML += permsHtml;
+
+        // Actions
+        let actHtml = '<td class="px-4 py-3"><div class="flex flex-col gap-1.5">';
+        if (user.status === 'pending') {
+          actHtml += `<button onclick="approveUser(${user.id})"
+            class="px-3 py-1 bg-green-600 text-white rounded font-semibold text-xs hover:bg-green-700 transition-colors">
+            ${t('approve')}</button>`;
+        }
+        if (user.status === 'blocked') {
+          actHtml += `<button onclick="unblockUser(${user.id})"
+            class="px-3 py-1 bg-green-600 text-white rounded font-semibold text-xs hover:bg-green-700 transition-colors">
+            ${t('unblock')}</button>`;
+        } else {
+          actHtml += `<button onclick="blockUser(${user.id})"
+            class="px-3 py-1 bg-orange-500 text-white rounded font-semibold text-xs hover:bg-orange-600 transition-colors">
+            ${t('block')}</button>`;
+        }
+        actHtml += `<button onclick="deleteUser(${user.id})"
+          class="px-3 py-1 bg-red-600 text-white rounded font-semibold text-xs hover:bg-red-700 transition-colors">
+          ${t('delete')}</button>`;
+        actHtml += '</div></td>';
+        tr.innerHTML += actHtml;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ── Render History table ──────────────────────────────────
+    function renderHistoryTable(users) {
+      const tbody = document.getElementById('history-tbody');
+      if (!users.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">No history found.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = '';
+      users.forEach(user => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-gray-100 hover:bg-gray-50 transition-colors';
+        const bClass = {pending:'badge-pending',active:'badge-active',blocked:'badge-blocked'}[user.status] || 'badge-pending';
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-medium">${esc(user.full_name)}</td>
+          <td class="px-4 py-3 text-gray-600">${esc(user.matricule)}</td>
+          <td class="px-4 py-3"><span class="status-badge ${bClass}">${user.status}</span></td>
+          <td class="px-4 py-3">${esc(user.role)}</td>
+          <td class="px-4 py-3 text-gray-500 text-xs">${esc(user.created_at || '—')}</td>
+          <td class="px-4 py-3 text-gray-500 text-xs">${esc(user.last_login || '—')}</td>
+          <td class="px-4 py-3 text-gray-500 text-xs">${esc(user.last_activity || '—')}</td>
+          <td class="px-4 py-3">
+            <div class="flex gap-2">
+              <button onclick="exportCSV(${user.id})"
+                class="px-3 py-1 bg-green-600 text-white rounded font-semibold text-xs hover:bg-green-700 transition-colors">
+                CSV
+              </button>
+            </div>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ── API actions ───────────────────────────────────────────
+    async function apiPost(url, body) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return res.json();
+    }
+
+    async function approveUser(id) {
+      await apiPost('/api/auth/approve', { user_id: id });
+      showToast('✅ User approved', 'bg-green-700');
+      await loadUsers();
+    }
+    async function blockUser(id) {
+      await apiPost('/api/auth/block', { user_id: id });
+      showToast('🚫 User blocked', 'bg-orange-600');
+      await loadUsers();
+    }
+    async function unblockUser(id) {
+      await apiPost('/api/auth/unblock', { user_id: id });
+      showToast('✅ User unblocked', 'bg-green-700');
+      await loadUsers();
+    }
+    async function deleteUser(id) {
+      if (!confirm(t('confirmDel'))) return;
+      const res = await fetch('/api/auth/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: id })
+      });
+      showToast('🗑 User deleted', 'bg-red-800');
+      await loadUsers();
+    }
+
+    async function togglePerm(userId, pageName, enabled) {
+      // Build full permissions object from current state
+      const user = allUsers.find(u => u.id === userId);
+      if (!user) return;
+      // Update local cache immediately
+      if (enabled) {
+        if (!user.permissions.includes(pageName)) user.permissions.push(pageName);
+      } else {
+        user.permissions = user.permissions.filter(p => p !== pageName);
+      }
+      await apiPost('/api/auth/update_permissions', {
+        user_id: userId,
+        permissions: user.permissions
+      });
+      showToast(t('savePerms'), 'bg-gray-800');
+    }
+
+    async function setAccessMode(userId, mode) {
+      // Update local cache
+      const user = allUsers.find(u => u.id === userId);
+      if (user) user.access_mode = mode;
+      // Save to backend (we'll add this endpoint)
+      await apiPost('/api/auth/update_access_mode', { user_id: userId, access_mode: mode });
+      showToast(t('modeChanged'), 'bg-gray-800');
+      // Re-render just the access mode buttons for this row
+      renderUsersTable(filterByQuery(allUsers, document.getElementById('user-search').value));
+    }
+
+    function exportCSV(userId) {
+      const user = allUsers.find(u => u.id === userId);
+      if (!user) return;
+      const rows = [
+        ['Field','Value'],
+        ['Full Name', user.full_name],
+        ['Matricule', user.matricule],
+        ['Email', user.email],
+        ['Status', user.status],
+        ['Role', user.role],
+        ['Created At', user.created_at || ''],
+        ['Last Login', user.last_login || ''],
+        ['Last Activity', user.last_activity || ''],
+        ['Permissions', (user.permissions||[]).join('; ')],
+      ];
+      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `user_${user.matricule}_${Date.now()}.csv`;
+      a.click();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────
+    function esc(str) {
+      return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Init ─────────────────────────────────────────────────
+    (async function init() {
+      // Check admin session
+      try {
+        const res = await fetch('/api/auth/me');
+        if (!res.ok) { window.location.href = '/'; return; }
+        const user = await res.json();
+        if (user.role !== 'admin') { window.location.href = '/handbook'; return; }
+        currentAdmin = user;
+        document.getElementById('sb-admin-name').textContent = user.full_name;
+        document.getElementById('sb-admin-mat').textContent  = 'Matricule: ' + user.matricule;
+      } catch(e) {
+        window.location.href = '/';
+        return;
+      }
+
+      // Apply saved language
+      setLang(lang);
+
+      // Load users from API
+      await loadUsers();
+    })();
+  </script>
+</body>
+</html>

@@ -1,145 +1,100 @@
 import sqlite3
-import os
 import hashlib
+import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'yazaki.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), 'yazaki.db')
 
-def get_connection():
+def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
-def hash_password(password):
+def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 def init_db():
-    conn = get_connection()
+    conn = get_db()
     cursor = conn.cursor()
-    cursor.executescript('''
+
+    # ── Users table ──────────────────────────────────────────
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            full_name TEXT NOT NULL,
-            matricule TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE,
-            password TEXT NOT NULL,
-            role TEXT DEFAULT 'user',
-            status TEXT DEFAULT 'pending',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS permissions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            page_name TEXT NOT NULL,
-            can_access INTEGER DEFAULT 0,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS stations (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            gum_minutes REAL NOT NULL,
-            position INTEGER
-        );
-
-        CREATE TABLE IF NOT EXISTS gum_awt_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            station_id INTEGER,
-            shift TEXT,
-            date TEXT,
-            gum REAL,
-            awt REAL,
-            ratio REAL,
-            source TEXT DEFAULT 'simulator',
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (station_id) REFERENCES stations(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            station_id INTEGER,
-            level INTEGER,
-            message TEXT,
-            acknowledged INTEGER DEFAULT 0,
-            ack_by TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS andon_events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            station_id INTEGER,
-            category TEXT,
-            description TEXT,
-            operator_id TEXT,
-            shift TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS data_collection (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            station_id INTEGER,
-            part_number TEXT,
-            f_number TEXT,
-            working_time_min REAL,
-            target_qty INTEGER,
-            actual_qty INTEGER,
-            npt_percent REAL,
-            gum REAL,
-            awt REAL,
-            shift TEXT,
-            date TEXT,
-            entered_by TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS batches_ksk (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            station_id INTEGER,
-            sk_reference TEXT,
-            variant TEXT,
-            status TEXT DEFAULT 'unverified',
-            scanned_at DATETIME
-        );
-
-        CREATE TABLE IF NOT EXISTS revisions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            variant_name TEXT,
-            description TEXT,
-            applied_by TEXT,
-            applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS shift_reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            shift TEXT,
-            date TEXT,
-            oee REAL,
-            avg_ratio REAL,
-            total_alerts INTEGER,
-            total_andon INTEGER,
-            generated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            full_name    TEXT NOT NULL,
+            matricule    TEXT UNIQUE NOT NULL,
+            email        TEXT UNIQUE NOT NULL,
+            password     TEXT NOT NULL,
+            role         TEXT DEFAULT 'user',
+            status       TEXT DEFAULT 'pending',
+            access_mode  TEXT DEFAULT 'manual',
+            last_login   TEXT DEFAULT '',
+            last_activity TEXT DEFAULT '',
+            created_at   TEXT DEFAULT (datetime('now'))
+        )
     ''')
 
-    # Insert 34 default stations if empty
-    cursor.execute("SELECT COUNT(*) FROM stations")
-    if cursor.fetchone()[0] == 0:
-        stations = [(i, f"Station {i:02d}", 12.0, i) for i in range(1, 35)]
-        cursor.executemany(
-            "INSERT INTO stations (id, name, gum_minutes, position) VALUES (?, ?, ?, ?)",
-            stations
-        )
+    # Migration: add new columns to existing databases (safe — no-op if already exists)
+    for col, definition in [
+        ('email',         "TEXT NOT NULL DEFAULT ''"),
+        ('access_mode',   "TEXT DEFAULT 'manual'"),
+        ('last_login',    "TEXT DEFAULT ''"),
+        ('last_activity', "TEXT DEFAULT ''"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
+        except Exception:
+            pass  # column already exists
 
-    # Insert default admin if no users exist
-    cursor.execute("SELECT COUNT(*) FROM users")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute(
-            "INSERT INTO users (full_name, matricule, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?)",
-            ("Admin Yazaki", "admin001", "admin@yazaki.com", hash_password("admin123"), "admin", "active")
+    # ── Permissions table ────────────────────────────────────
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS permissions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER NOT NULL,
+            page_name  TEXT NOT NULL,
+            can_access INTEGER DEFAULT 0,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         )
+    ''')
+
+    # ── Stations table ───────────────────────────────────────
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS stations (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            station_no   INTEGER UNIQUE NOT NULL,
+            station_name TEXT,
+            avg_gum      REAL DEFAULT 0,
+            avg_awt      REAL DEFAULT 0,
+            min_gum      REAL DEFAULT 0,
+            max_gum      REAL DEFAULT 0,
+            min_awt      REAL DEFAULT 0,
+            max_awt      REAL DEFAULT 0,
+            tact_time    REAL DEFAULT 2.09,
+            cycle_time   REAL DEFAULT 0,
+            updated_at   TEXT DEFAULT (datetime('now'))
+        )
+    ''')
+
+    # ── Seed default admin ───────────────────────────────────
+    cursor.execute("SELECT id FROM users WHERE matricule = 'admin001'")
+    if not cursor.fetchone():
+        cursor.execute('''
+            INSERT INTO users (full_name, matricule, email, password, role, status, access_mode)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', ('Administrator', 'admin001', 'admin@yazaki.com',
+              hash_password('admin123'), 'admin', 'active', 'manual'))
+
+    # ── Seed 34 stations ─────────────────────────────────────
+    for i in range(1, 35):
+        cursor.execute("SELECT id FROM stations WHERE station_no = ?", (i,))
+        if not cursor.fetchone():
+            cursor.execute(
+                "INSERT INTO stations (station_no, station_name) VALUES (?, ?)",
+                (i, f'Workstation {i}')
+            )
+
     conn.commit()
     conn.close()
-    print("✅ Database initialized successfully")
+    print("[DB] Database initialized successfully.")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     init_db()
