@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Yazaki — GUM vs AWT Handbook</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body { font-family: 'Segoe UI', sans-serif; }</style>
+</head>
+<body class="size-full bg-gradient-to-br from-gray-50 to-blue-50 overflow-auto">
+
+  <div class="p-8">
+    <div class="max-w-5xl mx-auto bg-white rounded-2xl shadow-2xl border-4 border-red-600 p-8">
+
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-6 mb-6 text-center shadow-lg">
+        <h1 class="text-3xl font-bold">GUM vs AWT HANDBOOK</h1>
+        <p class="text-sm mt-2 opacity-90">Guide et Procédures</p>
+      </div>
+
+      <!-- Pages -->
+      <div class="space-y-8">
+        <div>
+          <div class="w-full border-4 border-gray-200 rounded-lg overflow-hidden shadow-lg">
+            <img src="/static/handbook/page1.PNG" alt="Handbook page 1" class="w-full h-auto"/>
+          </div>
+          <div class="h-1 bg-red-600 mt-4"></div>
+        </div>
+        <div>
+          <div class="w-full border-4 border-gray-200 rounded-lg overflow-hidden shadow-lg">
+            <img src="/static/handbook/page2.PNG" alt="Handbook page 2" class="w-full h-auto"/>
+          </div>
+          <div class="h-1 bg-red-600 mt-4"></div>
+        </div>
+        <div>
+          <div class="w-full border-4 border-gray-200 rounded-lg overflow-hidden shadow-lg">
+            <img src="/static/handbook/page3.PNG" alt="Handbook page 3" class="w-full h-auto"/>
+          </div>
+          <div class="h-1 bg-red-600 mt-4"></div>
+        </div>
+        <div>
+          <div class="w-full border-4 border-gray-200 rounded-lg overflow-hidden shadow-lg">
+            <img src="/static/handbook/page4.PNG" alt="Handbook page 4" class="w-full h-auto"/>
+          </div>
+          <div class="h-1 bg-red-600 mt-4"></div>
+        </div>
+        <div>
+          <div class="w-full border-4 border-gray-200 rounded-lg overflow-hidden shadow-lg">
+            <img src="/static/handbook/page5.PNG" alt="Handbook page 5" class="w-full h-auto"/>
+          </div>
+          <div class="h-1 bg-red-600 mt-4"></div>
+        </div>
+        <div>
+          <div class="w-full border-4 border-gray-200 rounded-lg overflow-hidden shadow-lg">
+            <img src="/static/handbook/page6.PNG" alt="Handbook page 6" class="w-full h-auto"/>
+          </div>
+          <div class="h-1 bg-red-600 mt-4"></div>
+        </div>
+        <div>
+          <div class="w-full border-4 border-gray-200 rounded-lg overflow-hidden shadow-lg">
+            <img src="/static/handbook/page7.PNG" alt="Handbook page 7" class="w-full h-auto"/>
+          </div>
+          <div class="h-1 bg-red-600 mt-4"></div>
+        </div>
+        <div>
+          <div class="w-full border-4 border-gray-200 rounded-lg overflow-hidden shadow-lg">
+            <img src="/static/handbook/page8.PNG" alt="Handbook page 8" class="w-full h-auto"/>
+          </div>
+          <div class="h-1 bg-red-600 mt-4"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/sidebar.js"></script>
+  <script>
+    (async () => {
+      const user = await checkAuth();
+      if (user) buildSidebar('/handbook');
+    })();
+  </script>
+</body>
+</html>

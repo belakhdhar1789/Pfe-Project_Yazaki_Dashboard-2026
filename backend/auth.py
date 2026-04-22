@@ -76,7 +76,7 @@ def login():
         "message": "Login successful",
         "role": user['role'],
         "full_name": user['full_name'],
-        "redirect": "/admin" if user['role'] == 'admin' else "/home"
+        "redirect": "/admin" if user['role'] == 'admin' else "/handbook"
     }), 200
 
 
