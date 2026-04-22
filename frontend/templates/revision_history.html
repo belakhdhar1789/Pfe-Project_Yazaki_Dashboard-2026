@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Revision History — Yazaki</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; }
+    #sidebar-panel {
+      position: fixed; top: 0; right: -260px; width: 260px; height: 100vh;
+      background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+      transition: right 0.3s ease; z-index: 1000;
+      display: flex; flex-direction: column;
+    }
+    #sidebar-trigger {
+      position: fixed; top: 0; right: 0; width: 18px; height: 100vh;
+      background: linear-gradient(to bottom, #dc2626, #111);
+      cursor: pointer; z-index: 1001;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #sidebar-trigger span {
+      writing-mode: vertical-rl; color: white; font-size: 10px;
+      font-weight: bold; letter-spacing: 2px; opacity: 0.7;
+    }
+    #sidebar-panel.open { right: 0; }
+    .sidebar-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; border-radius: 8px; margin: 2px 8px;
+      color: #374151; text-decoration: none; font-size: 13px;
+      font-weight: 500; transition: all 0.2s; cursor: pointer;
+    }
+    .sidebar-link:hover { background: #fee2e2; color: #dc2626; }
+    .sidebar-link.active { background: #dc2626; color: white; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+
+  <div id="sidebar-trigger" onclick="toggleSidebar()"><span>MENU</span></div>
+
+  <div id="sidebar-panel">
+    <div class="bg-gradient-to-b from-red-600 to-black p-4 flex items-center gap-3">
+      <img src="/static/yazaki-logo.png" alt="Yazaki" class="w-10 h-10 object-contain bg-white rounded p-1"/>
+      <div>
+        <div class="text-white font-bold text-sm">YAZAKI</div>
+        <div class="text-red-200 text-xs">Dashboard System</div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto py-3" id="sidebar-menu"></div>
+    <div class="p-3 border-t border-gray-100">
+      <div id="sidebar-user" class="text-xs text-gray-500 mb-2 px-2"></div>
+      <button onclick="handleLogout()"
+        class="w-full flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Sign Out
+      </button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="p-8 mr-5">
+    <div class="max-w-4xl mx-auto">
+      <div class="bg-white rounded-2xl shadow-2xl border-4 border-red-600 p-8">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-6 mb-6 text-center shadow-lg">
+          <h1 class="text-3xl font-bold">Revision History</h1>
+          <p class="text-sm mt-2 opacity-90">Historique des Révisions</p>
+        </div>
+
+        <div class="bg-gray-100 p-4 rounded-lg">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold text-gray-800 uppercase">Revision History:</h2>
+            <!-- Add button — admin only -->
+            <button id="add-btn" onclick="startAdding()"
+              class="hidden items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors text-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Add Revision
+            </button>
+          </div>
+
+          <!-- Loading state -->
+          <div id="loading" class="text-center py-6 text-gray-400">Loading…</div>
+
+          <div class="overflow-x-auto hidden" id="table-wrapper">
+            <table class="w-full border-collapse bg-white" id="rev-table">
+              <thead>
+                <tr class="bg-gray-200">
+                  <th class="border-2 border-gray-400 px-6 py-3 text-left font-bold text-gray-800">Revision Summary</th>
+                  <th class="border-2 border-gray-400 px-6 py-3 text-center font-bold text-gray-800 w-32">Revision</th>
+                  <th class="border-2 border-gray-400 px-6 py-3 text-center font-bold text-gray-800 w-36">Date</th>
+                  <!-- Actions column — admin only, hidden by default -->
+                  <th id="actions-header" class="border-2 border-gray-400 px-6 py-3 text-center font-bold text-gray-800 w-32 hidden">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="rev-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/sidebar.js"></script>
+  <script>
+    let isAdmin  = false;
+    let revisions = [];
+    let editingId = null;
+    let adding    = false;
+
+    // ── Sidebar ───────────────────────────────────────────────
+    function toggleSidebar() {
+      document.getElementById('sidebar-panel').classList.toggle('open');
+    }
+    document.addEventListener('click', e => {
+      const panel   = document.getElementById('sidebar-panel');
+      const trigger = document.getElementById('sidebar-trigger');
+      if (!panel.contains(e.target) && !trigger.contains(e.target)) panel.classList.remove('open');
+    });
+
+    // ── Render table ──────────────────────────────────────────
+    function renderTable() {
+      const tbody = document.getElementById('rev-tbody');
+      tbody.innerHTML = '';
+
+      revisions.forEach(rev => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 transition-colors';
+
+        if (editingId === rev.id) {
+          // ── Edit row ──
+          tr.innerHTML = `
+            <td class="border-2 border-gray-400 px-6 py-3">
+              <input id="edit-summary" type="text" value="${esc(rev.summary)}"
+                class="w-full px-2 py-1 border-2 border-red-600 rounded focus:outline-none text-sm"/>
+            </td>
+            <td class="border-2 border-gray-400 px-6 py-3">
+              <input id="edit-rev" type="text" value="${esc(rev.revision)}"
+                class="w-full px-2 py-1 border-2 border-red-600 rounded text-center focus:outline-none text-sm"/>
+            </td>
+            <td class="border-2 border-gray-400 px-6 py-3">
+              <input id="edit-date" type="text" value="${esc(rev.date)}" placeholder="DD-MMM-YY"
+                class="w-full px-2 py-1 border-2 border-red-600 rounded text-center focus:outline-none text-sm"/>
+            </td>
+            <td class="border-2 border-gray-400 px-6 py-3">
+              <div class="flex gap-2 justify-center">
+                <button onclick="saveEdit(${rev.id})"
+                  class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                </button>
+                <button onclick="cancelEdit()"
+                  class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </td>`;
+        } else {
+          // ── Read row ──
+          tr.innerHTML = `
+            <td class="border-2 border-gray-400 px-6 py-3 text-gray-800">${esc(rev.summary)}</td>
+            <td class="border-2 border-gray-400 px-6 py-3 text-center text-gray-800">${esc(rev.revision)}</td>
+            <td class="border-2 border-gray-400 px-6 py-3 text-center text-gray-800">${esc(rev.date)}</td>
+            ${isAdmin ? `
+            <td class="border-2 border-gray-400 px-6 py-3">
+              <div class="flex gap-2 justify-center">
+                <button onclick="startEdit(${rev.id})"
+                  class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5
+                         m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+                <button onclick="deleteRev(${rev.id})"
+                  class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7
+                         m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </td>` : ''}`;
+        }
+        tbody.appendChild(tr);
+      });
+
+      // ── Add new row ──
+      if (adding) {
+        const tr = document.createElement('tr');
+        tr.className = 'bg-green-50';
+        tr.innerHTML = `
+          <td class="border-2 border-gray-400 px-6 py-3">
+            <input id="new-summary" type="text" placeholder="Enter revision summary..."
+              class="w-full px-2 py-1 border-2 border-green-600 rounded focus:outline-none text-sm"/>
+          </td>
+          <td class="border-2 border-gray-400 px-6 py-3">
+            <input id="new-rev" type="text" placeholder="Rev #"
+              class="w-full px-2 py-1 border-2 border-green-600 rounded text-center focus:outline-none text-sm"/>
+          </td>
+          <td class="border-2 border-gray-400 px-6 py-3">
+            <input id="new-date" type="text" placeholder="DD-MMM-YY"
+              class="w-full px-2 py-1 border-2 border-green-600 rounded text-center focus:outline-none text-sm"/>
+          </td>
+          <td class="border-2 border-gray-400 px-6 py-3">
+            <div class="flex gap-2 justify-center">
+              <button onclick="confirmAdd()"
+                class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+              </button>
+              <button onclick="cancelAdd()"
+                class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </td>`;
+        tbody.appendChild(tr);
+        document.getElementById('new-summary').focus();
+      }
+    }
+
+    // ── API calls ─────────────────────────────────────────────
+    async function loadRevisions() {
+      const res  = await fetch('/api/revisions');
+      revisions  = await res.json();
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('table-wrapper').classList.remove('hidden');
+      renderTable();
+    }
+
+    function startEdit(id) { editingId = id; adding = false; renderTable(); }
+    function cancelEdit()  { editingId = null; renderTable(); }
+
+    async function saveEdit(id) {
+      const summary  = document.getElementById('edit-summary').value.trim();
+      const revision = document.getElementById('edit-rev').value.trim();
+      const date     = document.getElementById('edit-date').value.trim();
+      if (!summary || !revision || !date) { alert('All fields required.'); return; }
+      await fetch(`/api/revisions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summary, revision, date })
+      });
+      editingId = null;
+      await loadRevisions();
+    }
+
+    async function deleteRev(id) {
+      if (!confirm('Delete this revision?')) return;
+      await fetch(`/api/revisions/${id}`, { method: 'DELETE' });
+      await loadRevisions();
+    }
+
+    function startAdding() { adding = true; editingId = null; renderTable(); }
+    function cancelAdd()   { adding = false; renderTable(); }
+
+    async function confirmAdd() {
+      const summary  = document.getElementById('new-summary').value.trim();
+      const revision = document.getElementById('new-rev').value.trim();
+      const date     = document.getElementById('new-date').value.trim();
+      if (!summary || !revision || !date) { alert('All fields required.'); return; }
+      await fetch('/api/revisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summary, revision, date })
+      });
+      adding = false;
+      await loadRevisions();
+    }
+
+    function esc(s) {
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Init ─────────────────────────────────────────────────
+    checkAuth().then(user => {
+      buildSidebar('/revision-history', user);
+      document.getElementById('sidebar-user').textContent = 'Logged in as: ' + user.full_name;
+
+      if (user.role === 'admin') {
+        isAdmin = true;
+        // Show Add button and Actions column header
+        const addBtn = document.getElementById('add-btn');
+        addBtn.classList.remove('hidden');
+        addBtn.classList.add('flex');
+        document.getElementById('actions-header').classList.remove('hidden');
+      }
+
+      loadRevisions();
+    });
+  </script>
+</body>
+</html>

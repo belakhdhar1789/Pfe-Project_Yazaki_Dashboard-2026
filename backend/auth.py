@@ -327,3 +327,80 @@ def update_access_mode():
         return jsonify({'message': 'Access mode updated.'})
     finally:
         conn.close()
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  REVISION HISTORY ENDPOINTS
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Get all revisions (everyone) ─────────────────────────────────────────────
+@auth_bp.route('/api/revisions', methods=['GET'])
+def get_revisions():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated.'}), 401
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            'SELECT id, summary, revision, date FROM revisions ORDER BY id ASC'
+        ).fetchall()
+        return jsonify([dict(r) for r in rows])
+    finally:
+        conn.close()
+
+# ── Add revision (admin only) ────────────────────────────────────────────────
+@auth_bp.route('/api/revisions', methods=['POST'])
+def add_revision():
+    err = require_admin()
+    if err: return err
+    data    = request.get_json()
+    summary  = (data.get('summary') or '').strip()
+    revision = (data.get('revision') or '').strip()
+    date     = (data.get('date') or '').strip()
+    if not all([summary, revision, date]):
+        return jsonify({'error': 'All fields required.'}), 400
+    conn = get_db()
+    try:
+        cursor = conn.execute(
+            'INSERT INTO revisions (summary, revision, date) VALUES (?, ?, ?)',
+            (summary, revision, date)
+        )
+        conn.commit()
+        return jsonify({'id': cursor.lastrowid, 'summary': summary,
+                        'revision': revision, 'date': date}), 201
+    finally:
+        conn.close()
+
+# ── Edit revision (admin only) ───────────────────────────────────────────────
+@auth_bp.route('/api/revisions/<int:rev_id>', methods=['PUT'])
+def edit_revision(rev_id):
+    err = require_admin()
+    if err: return err
+    data    = request.get_json()
+    summary  = (data.get('summary') or '').strip()
+    revision = (data.get('revision') or '').strip()
+    date     = (data.get('date') or '').strip()
+    if not all([summary, revision, date]):
+        return jsonify({'error': 'All fields required.'}), 400
+    conn = get_db()
+    try:
+        conn.execute(
+            'UPDATE revisions SET summary=?, revision=?, date=? WHERE id=?',
+            (summary, revision, date, rev_id)
+        )
+        conn.commit()
+        return jsonify({'message': 'Revision updated.'})
+    finally:
+        conn.close()
+
+# ── Delete revision (admin only) ─────────────────────────────────────────────
+@auth_bp.route('/api/revisions/<int:rev_id>', methods=['DELETE'])
+def delete_revision(rev_id):
+    err = require_admin()
+    if err: return err
+    conn = get_db()
+    try:
+        conn.execute('DELETE FROM revisions WHERE id=?', (rev_id,))
+        conn.commit()
+        return jsonify({'message': 'Revision deleted.'})
+    finally:
+        conn.close()

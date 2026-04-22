@@ -74,6 +74,28 @@ def init_db():
         )
     ''')
 
+    # ── Revisions table ─────────────────────────────────────
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS revisions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            summary    TEXT NOT NULL,
+            revision   TEXT NOT NULL,
+            date       TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    ''')
+
+    # ── Seed default revisions ───────────────────────────────
+    cursor.execute("SELECT COUNT(*) FROM revisions")
+    if cursor.fetchone()[0] == 0:
+        cursor.executemany(
+            "INSERT INTO revisions (summary, revision, date) VALUES (?, ?, ?)",
+            [
+                ('Initial release', 'New', '13-Jul-23'),
+                ('Update',          '1',   '2-Oct-23'),
+            ]
+        )
+
     # ── Seed default admin ───────────────────────────────────
     cursor.execute("SELECT id FROM users WHERE matricule = 'admin001'")
     if not cursor.fetchone():
