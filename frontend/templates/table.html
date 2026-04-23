@@ -35,16 +35,16 @@
     .sidebar-link:hover { background: #fee2e2; color: #dc2626; }
     .sidebar-link.active { background: #dc2626; color: white; }
 
-    /* ── Table ── */
+    /* ── Table base ── */
     th, td { white-space: nowrap; }
     .sticky-col { position: sticky; left: 0; z-index: 5; }
 
-    /* Editable cell highlight */
+    /* Editable cells */
     td.editable:hover  { background: #fef9c3 !important; cursor: text; }
     td.editable:focus  { outline: 2px solid #dc2626; background: #fff7f7 !important; }
     span[contenteditable]:focus { outline: 1px solid #dc2626; border-radius: 2px; }
 
-    /* Delete buttons on headers / row labels */
+    /* Delete buttons */
     .del-col-btn, .del-row-btn {
       display: none; cursor: pointer;
       color: #dc2626; font-size: 10px; font-weight: bold;
@@ -52,6 +52,29 @@
     }
     th:hover .del-col-btn,
     td.row-label:hover .del-row-btn { display: inline; }
+
+    /* ── Drag & drop ── */
+    /* Column drag handle (≡ icon on col header) */
+    .col-drag-handle {
+      display: inline-block; cursor: grab; color: #9ca3af;
+      font-size: 11px; margin-right: 4px; vertical-align: middle;
+      user-select: none;
+    }
+    .col-drag-handle:active { cursor: grabbing; }
+
+    /* Row drag handle */
+    .row-drag-handle {
+      display: inline-block; cursor: grab; color: #9ca3af;
+      font-size: 11px; margin-right: 4px; vertical-align: middle;
+      user-select: none;
+    }
+    .row-drag-handle:active { cursor: grabbing; }
+
+    /* Dragging state */
+    tr.dragging-row   { opacity: 0.4; }
+    th.dragging-col   { opacity: 0.4; }
+    tr.drag-over-row  { border-top: 3px solid #dc2626; }
+    th.drag-over-col  { border-left: 3px solid #dc2626; }
 
     /* Toast */
     #toast {
@@ -104,7 +127,7 @@
         <p class="text-sm mt-2 opacity-90">Données des Stations de Production</p>
       </div>
 
-      <!-- Admin toolbar (hidden for normal users) -->
+      <!-- Admin toolbar -->
       <div id="admin-toolbar" class="hidden mb-4 flex-wrap items-center gap-3">
         <button onclick="addColumn()"
           class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">
@@ -130,6 +153,8 @@
           Save
         </button>
         <span id="unsaved-badge" class="hidden text-xs text-orange-600 font-semibold">● Unsaved changes</span>
+        <!-- Drag hint -->
+        <span class="text-xs text-gray-400 ml-2">⠿ Drag column headers or row labels to reorder</span>
       </div>
 
       <!-- Loading -->
@@ -143,7 +168,6 @@
     </div>
   </div>
 
-  <!-- Toast -->
   <div id="toast"></div>
 
   <script src="/static/sidebar.js"></script>
@@ -152,6 +176,10 @@
     let tableData = { columns: [], rows: [] };
     let isAdmin   = false;
     let dirty     = false;
+
+    // Drag state
+    let dragType  = null;   // 'row' | 'col'
+    let dragIndex = null;   // source index
 
     const rowColors = [
       '#eff6ff','#eff6ff','#f0fdf4','#f0fdf4',
@@ -179,7 +207,6 @@
       setTimeout(() => { t.className = isError ? 'error' : ''; }, 2800);
     }
 
-    // ── Mark dirty ────────────────────────────────────────────
     function markDirty() {
       dirty = true;
       document.getElementById('unsaved-badge').classList.remove('hidden');
@@ -190,10 +217,9 @@
       const table = document.getElementById('station-table');
       table.innerHTML = '';
       const { columns, rows } = tableData;
-
       const thead = document.createElement('thead');
 
-      // Row 1 — Station No
+      // ── Row 1: Station No ──
       const tr1 = document.createElement('tr');
       tr1.appendChild(makeTh('Station No',
         'border border-gray-400 px-2 py-1 bg-gray-200 font-bold sticky-col'));
@@ -203,14 +229,31 @@
       });
       thead.appendChild(tr1);
 
-      // Row 2 — Station Name (editable col names for admin)
+      // ── Row 2: Station Name (col names — draggable for admin) ──
       const tr2 = document.createElement('tr');
       tr2.appendChild(makeTh('Station Name',
         'border border-gray-400 px-2 py-1 bg-yellow-300 font-bold sticky-col'));
+
       columns.forEach((col, ci) => {
         const th = document.createElement('th');
-        th.className = 'border border-gray-400 px-2 py-1 bg-yellow-300 font-bold text-center';
+        th.className    = 'border border-gray-400 px-2 py-1 bg-yellow-300 font-bold text-center';
+        th.dataset.ci   = ci;
+
         if (isAdmin) {
+          // Drag handle
+          const handle = document.createElement('span');
+          handle.className   = 'col-drag-handle';
+          handle.textContent = '⠿';
+          handle.title       = 'Drag to reorder';
+          handle.draggable   = true;
+          handle.addEventListener('dragstart', e => {
+            dragType  = 'col';
+            dragIndex = ci;
+            th.classList.add('dragging-col');
+            e.dataTransfer.effectAllowed = 'move';
+          });
+
+          // Editable name
           const span = document.createElement('span');
           span.textContent     = col;
           span.contentEditable = 'true';
@@ -219,13 +262,35 @@
             tableData.columns[ci] = span.textContent.trim();
             markDirty();
           });
+
+          // Delete button
           const del = document.createElement('span');
           del.className   = 'del-col-btn';
           del.textContent = '✕';
           del.title       = 'Delete column';
           del.onclick     = e => { e.stopPropagation(); deleteColumn(ci); };
+
+          th.appendChild(handle);
           th.appendChild(span);
           th.appendChild(del);
+
+          // Drop target events
+          th.addEventListener('dragover', e => {
+            if (dragType !== 'col') return;
+            e.preventDefault();
+            document.querySelectorAll('th.drag-over-col').forEach(x => x.classList.remove('drag-over-col'));
+            th.classList.add('drag-over-col');
+          });
+          th.addEventListener('dragleave', () => th.classList.remove('drag-over-col'));
+          th.addEventListener('drop', e => {
+            e.preventDefault();
+            th.classList.remove('drag-over-col');
+            document.querySelectorAll('th.dragging-col').forEach(x => x.classList.remove('dragging-col'));
+            if (dragType === 'col' && dragIndex !== null && dragIndex !== ci) {
+              moveColumn(dragIndex, ci);
+            }
+            dragType = dragIndex = null;
+          });
         } else {
           th.textContent = col;
         }
@@ -234,16 +299,34 @@
       thead.appendChild(tr2);
       table.appendChild(thead);
 
-      // Body rows
+      // ── Body rows (draggable for admin) ──
       const tbody = document.createElement('tbody');
+      tbody.id = 'table-tbody';
+
       rows.forEach((row, ri) => {
         const tr = document.createElement('tr');
+        tr.dataset.ri       = ri;
         tr.style.background = rowColors[ri] || '#ffffff';
 
         // Label cell
         const tdLabel = document.createElement('td');
         tdLabel.className = 'border border-gray-400 px-2 py-1 bg-gray-100 font-semibold sticky-col row-label';
+
         if (isAdmin) {
+          // Drag handle
+          const handle = document.createElement('span');
+          handle.className   = 'row-drag-handle';
+          handle.textContent = '⠿';
+          handle.title       = 'Drag to reorder';
+          handle.draggable   = true;
+          handle.addEventListener('dragstart', e => {
+            dragType  = 'row';
+            dragIndex = ri;
+            tr.classList.add('dragging-row');
+            e.dataTransfer.effectAllowed = 'move';
+          });
+
+          // Editable label
           const span = document.createElement('span');
           span.textContent     = row.label;
           span.contentEditable = 'true';
@@ -252,13 +335,35 @@
             tableData.rows[ri].label = span.textContent.trim();
             markDirty();
           });
+
+          // Delete button
           const del = document.createElement('span');
           del.className   = 'del-row-btn';
           del.textContent = '✕';
           del.title       = 'Delete row';
           del.onclick     = e => { e.stopPropagation(); deleteRow(ri); };
+
+          tdLabel.appendChild(handle);
           tdLabel.appendChild(span);
           tdLabel.appendChild(del);
+
+          // Drop target on the whole row
+          tr.addEventListener('dragover', e => {
+            if (dragType !== 'row') return;
+            e.preventDefault();
+            document.querySelectorAll('tr.drag-over-row').forEach(x => x.classList.remove('drag-over-row'));
+            tr.classList.add('drag-over-row');
+          });
+          tr.addEventListener('dragleave', () => tr.classList.remove('drag-over-row'));
+          tr.addEventListener('drop', e => {
+            e.preventDefault();
+            tr.classList.remove('drag-over-row');
+            document.querySelectorAll('tr.dragging-row').forEach(x => x.classList.remove('dragging-row'));
+            if (dragType === 'row' && dragIndex !== null && dragIndex !== ri) {
+              moveRow(dragIndex, ri);
+            }
+            dragType = dragIndex = null;
+          });
         } else {
           tdLabel.textContent = row.label;
         }
@@ -285,6 +390,13 @@
 
         tbody.appendChild(tr);
       });
+
+      // Global dragend cleanup
+      document.addEventListener('dragend', () => {
+        document.querySelectorAll('.dragging-row, .dragging-col, .drag-over-row, .drag-over-col')
+          .forEach(x => x.classList.remove('dragging-row','dragging-col','drag-over-row','drag-over-col'));
+      }, { once: true });
+
       table.appendChild(tbody);
     }
 
@@ -293,6 +405,23 @@
       th.className   = cls;
       th.textContent = text;
       return th;
+    }
+
+    // ── Move helpers ──────────────────────────────────────────
+    function moveRow(from, to) {
+      const [removed] = tableData.rows.splice(from, 1);
+      tableData.rows.splice(to, 0, removed);
+      markDirty();
+      render();
+    }
+
+    function moveColumn(from, to) {
+      tableData.columns.splice(to, 0, tableData.columns.splice(from, 1)[0]);
+      tableData.rows.forEach(r => {
+        r.values.splice(to, 0, r.values.splice(from, 1)[0]);
+      });
+      markDirty();
+      render();
     }
 
     // ── Add / Delete Column ───────────────────────────────────
@@ -365,7 +494,6 @@
       }
     }
 
-    // Warn before leaving with unsaved changes
     window.addEventListener('beforeunload', e => {
       if (dirty) { e.preventDefault(); e.returnValue = ''; }
     });

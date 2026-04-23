@@ -7,14 +7,14 @@ from flask_socketio import SocketIO
 from database import init_db
 from auth import auth_bp 
 from table_api import table_bp
-app.register_blueprint(table_bp)
+
 
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
 app.config['SECRET_KEY'] = 'yazaki-secret-2026'
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 app.register_blueprint(auth_bp)
-
+app.register_blueprint(table_bp)
 TEMPLATES = '../frontend/templates'
 
 @app.route('/')
