@@ -7,6 +7,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: 'Segoe UI', sans-serif; }
+
+    /* ── Sidebar ── */
     #sidebar-panel {
       position: fixed; top: 0; right: -260px; width: 260px; height: 100vh;
       background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
@@ -32,8 +34,35 @@
     }
     .sidebar-link:hover { background: #fee2e2; color: #dc2626; }
     .sidebar-link.active { background: #dc2626; color: white; }
+
+    /* ── Table ── */
     th, td { white-space: nowrap; }
     .sticky-col { position: sticky; left: 0; z-index: 5; }
+
+    /* Editable cell highlight */
+    td.editable:hover  { background: #fef9c3 !important; cursor: text; }
+    td.editable:focus  { outline: 2px solid #dc2626; background: #fff7f7 !important; }
+    span[contenteditable]:focus { outline: 1px solid #dc2626; border-radius: 2px; }
+
+    /* Delete buttons on headers / row labels */
+    .del-col-btn, .del-row-btn {
+      display: none; cursor: pointer;
+      color: #dc2626; font-size: 10px; font-weight: bold;
+      margin-left: 4px; line-height: 1; vertical-align: middle;
+    }
+    th:hover .del-col-btn,
+    td.row-label:hover .del-row-btn { display: inline; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #166534; color: white; padding: 10px 24px;
+      border-radius: 8px; font-size: 13px; font-weight: 600;
+      opacity: 0; transition: opacity 0.3s; z-index: 9999; pointer-events: none;
+    }
+    #toast.show  { opacity: 1; }
+    #toast.error { background: #991b1b; }
+
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #f1f1f1; }
     ::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 3px; }
@@ -69,112 +98,292 @@
   <div class="p-8 mr-5">
     <div class="bg-white rounded-2xl shadow-2xl border-4 border-red-600 p-8">
 
+      <!-- Page header -->
       <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-6 mb-6 text-center shadow-lg">
         <h1 class="text-3xl font-bold">Table</h1>
         <p class="text-sm mt-2 opacity-90">Données des Stations de Production</p>
       </div>
 
-      <div class="overflow-x-auto">
+      <!-- Admin toolbar (hidden for normal users) -->
+      <div id="admin-toolbar" class="hidden mb-4 flex-wrap items-center gap-3">
+        <button onclick="addColumn()"
+          class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Add Column
+        </button>
+        <button onclick="addRow()"
+          class="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Add Row
+        </button>
+        <button onclick="saveTable()"
+          class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3
+                 m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+          </svg>
+          Save
+        </button>
+        <span id="unsaved-badge" class="hidden text-xs text-orange-600 font-semibold">● Unsaved changes</span>
+      </div>
+
+      <!-- Loading -->
+      <div id="loading" class="text-center py-10 text-gray-400 text-sm">Loading table…</div>
+
+      <!-- Table wrapper -->
+      <div id="table-wrapper" class="hidden overflow-x-auto">
         <table class="border-collapse text-xs" id="station-table"></table>
       </div>
+
     </div>
   </div>
 
+  <!-- Toast -->
+  <div id="toast"></div>
+
   <script src="/static/sidebar.js"></script>
   <script>
-    checkAuth().then(user => {
-      buildSidebar('/table', user);
-      document.getElementById('sidebar-user').textContent = 'Logged in as: ' + user.full_name;
-    });
+    // ── State ─────────────────────────────────────────────────
+    let tableData = { columns: [], rows: [] };
+    let isAdmin   = false;
+    let dirty     = false;
 
+    const rowColors = [
+      '#eff6ff','#eff6ff','#f0fdf4','#f0fdf4',
+      '#fff7ed','#fff7ed','#faf5ff','#faf5ff',
+      '#fefce8','#f9fafb','#f9fafb','#fef2f2',
+      '#f0fdfa','#f0fdfa',
+    ];
+
+    // ── Sidebar ───────────────────────────────────────────────
     function toggleSidebar() {
       document.getElementById('sidebar-panel').classList.toggle('open');
     }
-    document.addEventListener('click', (e) => {
-      const panel = document.getElementById('sidebar-panel');
+    document.addEventListener('click', e => {
+      const panel   = document.getElementById('sidebar-panel');
       const trigger = document.getElementById('sidebar-trigger');
-      if (!panel.contains(e.target) && !trigger.contains(e.target)) panel.classList.remove('open');
+      if (!panel.contains(e.target) && !trigger.contains(e.target))
+        panel.classList.remove('open');
     });
 
-    const stations = Array.from({length: 34}, (_, i) => i + 1);
+    // ── Toast ─────────────────────────────────────────────────
+    function showToast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className   = 'show' + (isError ? ' error' : '');
+      setTimeout(() => { t.className = isError ? 'error' : ''; }, 2800);
+    }
 
-    const tableData = [
-      { label: "Min GUM",                      values: ["1.67","1.75","2.87","2.46","2.55","2.87","2.95","3.67","3.80","3.55","3.34","3.16","3.51","2.74","4.08","2.17","2.79","3.70","4.45","3.81","4.44","4.00","4.00","3.84","3.76","3.42","2.33","2.04","2.00","2.03","2.05","3.51","3.45","3.03"] },
-      { label: "Min AWT",                      values: ["1.67","1.75","2.87","2.46","2.55","2.87","2.95","3.67","3.80","3.55","3.34","3.16","3.51","2.74","4.08","2.17","2.79","3.70","4.45","3.81","4.44","4.00","4.00","3.84","3.76","3.42","2.33","2.04","2.00","2.03","2.05","3.51","3.45","3.03"] },
-      { label: "Max GUM",                      values: ["2.62","2.91","2.87","2.46","2.55","2.95","2.95","3.67","4.03","3.86","3.34","3.16","3.51","2.74","4.08","2.17","2.79","3.70","4.75","3.22","2.48","4.97","4.97","3.80","3.84","4.00","3.42","1.67","1.05","1.62","1.05","4.24","3.24","1.75"] },
-      { label: "Max AWT",                      values: ["2.00","2.75","2.87","2.46","2.55","3.09","2.95","3.67","3.80","3.55","3.34","3.16","3.51","2.74","4.08","2.17","2.79","3.70","4.45","3.81","4.44","4.00","4.00","3.84","3.76","3.42","2.33","2.04","2.00","2.03","2.05","3.51","3.45","3.03"] },
-      { label: "Fluctuation (Max-Min) GUM",    values: ["0.95","0","0","0","0","0.22","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0"] },
-      { label: "Fluctuation Rate GUM",         values: ["0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%"] },
-      { label: "Fluctuation (Max-Min) AWT",    values: ["0","0","0","0","0","0.22","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0"] },
-      { label: "Fluctuation Rate AWT",         values: ["0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%","0%"] },
-      { label: "Tact time",                    values: ["2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09","2.09"] },
-      { label: "Convergence",                  values: ["1.1","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3"] },
-      { label: "(CT - CV speed ())",           values: ["1.1","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3","1.3"] },
-      { label: "Actual Cycle Time Measured",   values: ["1.61","2.33","2.87","2.46","2.55","2.91","2.95","3.67","3.91","3.71","3.34","3.16","3.51","2.74","4.08","2.17","2.79","3.70","4.45","3.51","3.46","4.48","4.48","3.84","3.76","3.42","2.88","2.04","1.53","1.83","1.05","3.84","3.45","2.39"] },
-      { label: "Average GUM",                  values: ["1.94","2.12","2.87","2.46","2.55","2.91","2.95","3.67","3.92","3.71","3.34","3.16","3.51","2.74","4.08","2.17","2.79","3.70","4.54","3.84","3.76","3.42","2.12","2.04","2.00","2.03","2.05","3.51","3.45","3.03","0","0","0","0"] },
-      { label: "Average AWT",                  values: ["1.84","2.25","2.87","2.46","2.55","2.98","2.95","3.67","3.80","3.55","3.34","3.16","3.51","2.74","4.08","2.17","2.79","3.70","4.45","3.81","4.44","4.00","4.00","3.84","3.76","3.42","2.33","2.04","2.00","2.03","2.05","3.51","3.45","3.03"] },
-    ];
+    // ── Mark dirty ────────────────────────────────────────────
+    function markDirty() {
+      dirty = true;
+      document.getElementById('unsaved-badge').classList.remove('hidden');
+    }
 
-    const rowColors = [
-      'bg-blue-50','bg-blue-50','bg-green-50','bg-green-50',
-      'bg-orange-50','bg-orange-50','bg-purple-50','bg-purple-50',
-      'bg-yellow-50','bg-gray-50','bg-gray-50','bg-red-50',
-      'bg-teal-50','bg-teal-50',
-    ];
+    // ── Render ────────────────────────────────────────────────
+    function render() {
+      const table = document.getElementById('station-table');
+      table.innerHTML = '';
+      const { columns, rows } = tableData;
 
-    const table = document.getElementById('station-table');
-    const thead = document.createElement('thead');
-    // Row 1: Station No
-    const tr1 = document.createElement('tr');
-    const thLabel1 = document.createElement('th');
-    thLabel1.className = 'border border-gray-400 px-2 py-1 bg-gray-200 font-bold sticky-col';
-    thLabel1.textContent = 'Station No';
-    tr1.appendChild(thLabel1);
-    stations.forEach(n => {
-      const th = document.createElement('th');
-      th.className = 'border border-gray-400 px-2 py-1 bg-gray-200 font-bold text-center min-w-[52px]';
-      th.textContent = n;
-      tr1.appendChild(th);
-    });
-    thead.appendChild(tr1);
-    // Row 2: Station Name
-    const tr2 = document.createElement('tr');
-    const thLabel2 = document.createElement('th');
-    thLabel2.className = 'border border-gray-400 px-2 py-1 bg-yellow-300 font-bold sticky-col';
-    thLabel2.textContent = 'Station Name';
-    tr2.appendChild(thLabel2);
-    stations.forEach(n => {
-      const th = document.createElement('th');
-      th.className = 'border border-gray-400 px-2 py-1 bg-yellow-300 font-bold text-center';
-      th.textContent = 'WS ' + n;
-      tr2.appendChild(th);
-    });
-    thead.appendChild(tr2);
-    table.appendChild(thead);
+      const thead = document.createElement('thead');
 
-    const tbody = document.createElement('tbody');
-    tableData.forEach((row, ri) => {
-      const tr = document.createElement('tr');
-      tr.className = 'hover:bg-gray-100 ' + (rowColors[ri] || 'bg-white');
-      const tdLabel = document.createElement('td');
-      tdLabel.className = 'border border-gray-400 px-2 py-1 bg-gray-100 font-semibold sticky-col';
-      tdLabel.textContent = row.label;
-      tr.appendChild(tdLabel);
-      row.values.forEach(val => {
-        const td = document.createElement('td');
-        td.className = 'border border-gray-400 px-2 py-1 bg-yellow-100 text-center';
-        td.textContent = val;
-        tr.appendChild(td);
+      // Row 1 — Station No
+      const tr1 = document.createElement('tr');
+      tr1.appendChild(makeTh('Station No',
+        'border border-gray-400 px-2 py-1 bg-gray-200 font-bold sticky-col'));
+      columns.forEach((_, ci) => {
+        tr1.appendChild(makeTh(String(ci + 1),
+          'border border-gray-400 px-2 py-1 bg-gray-200 font-bold text-center min-w-[56px]'));
       });
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
+      thead.appendChild(tr1);
 
-    // ── Init ───────────────────────────────────────────────
+      // Row 2 — Station Name (editable col names for admin)
+      const tr2 = document.createElement('tr');
+      tr2.appendChild(makeTh('Station Name',
+        'border border-gray-400 px-2 py-1 bg-yellow-300 font-bold sticky-col'));
+      columns.forEach((col, ci) => {
+        const th = document.createElement('th');
+        th.className = 'border border-gray-400 px-2 py-1 bg-yellow-300 font-bold text-center';
+        if (isAdmin) {
+          const span = document.createElement('span');
+          span.textContent     = col;
+          span.contentEditable = 'true';
+          span.className       = 'focus:outline-none px-1 rounded min-w-[40px] inline-block';
+          span.addEventListener('input', () => {
+            tableData.columns[ci] = span.textContent.trim();
+            markDirty();
+          });
+          const del = document.createElement('span');
+          del.className   = 'del-col-btn';
+          del.textContent = '✕';
+          del.title       = 'Delete column';
+          del.onclick     = e => { e.stopPropagation(); deleteColumn(ci); };
+          th.appendChild(span);
+          th.appendChild(del);
+        } else {
+          th.textContent = col;
+        }
+        tr2.appendChild(th);
+      });
+      thead.appendChild(tr2);
+      table.appendChild(thead);
+
+      // Body rows
+      const tbody = document.createElement('tbody');
+      rows.forEach((row, ri) => {
+        const tr = document.createElement('tr');
+        tr.style.background = rowColors[ri] || '#ffffff';
+
+        // Label cell
+        const tdLabel = document.createElement('td');
+        tdLabel.className = 'border border-gray-400 px-2 py-1 bg-gray-100 font-semibold sticky-col row-label';
+        if (isAdmin) {
+          const span = document.createElement('span');
+          span.textContent     = row.label;
+          span.contentEditable = 'true';
+          span.className       = 'focus:outline-none px-1 rounded inline-block min-w-[120px]';
+          span.addEventListener('input', () => {
+            tableData.rows[ri].label = span.textContent.trim();
+            markDirty();
+          });
+          const del = document.createElement('span');
+          del.className   = 'del-row-btn';
+          del.textContent = '✕';
+          del.title       = 'Delete row';
+          del.onclick     = e => { e.stopPropagation(); deleteRow(ri); };
+          tdLabel.appendChild(span);
+          tdLabel.appendChild(del);
+        } else {
+          tdLabel.textContent = row.label;
+        }
+        tr.appendChild(tdLabel);
+
+        // Value cells
+        row.values.forEach((val, ci) => {
+          const td = document.createElement('td');
+          td.style.background = '#fefce8';
+          td.className = 'border border-gray-400 px-2 py-1 text-center';
+          if (isAdmin) {
+            td.contentEditable = 'true';
+            td.classList.add('editable');
+            td.textContent = val;
+            td.addEventListener('input', () => {
+              tableData.rows[ri].values[ci] = td.textContent.trim();
+              markDirty();
+            });
+          } else {
+            td.textContent = val;
+          }
+          tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+    }
+
+    function makeTh(text, cls) {
+      const th = document.createElement('th');
+      th.className   = cls;
+      th.textContent = text;
+      return th;
+    }
+
+    // ── Add / Delete Column ───────────────────────────────────
+    function addColumn() {
+      const name = prompt('New column name:', `WS ${tableData.columns.length + 1}`);
+      if (name === null) return;
+      tableData.columns.push(name.trim() || `WS ${tableData.columns.length + 1}`);
+      tableData.rows.forEach(r => r.values.push('0'));
+      markDirty();
+      render();
+    }
+    function deleteColumn(ci) {
+      if (!confirm(`Delete column "${tableData.columns[ci]}"?\nThis cannot be undone until you save.`)) return;
+      tableData.columns.splice(ci, 1);
+      tableData.rows.forEach(r => r.values.splice(ci, 1));
+      markDirty();
+      render();
+    }
+
+    // ── Add / Delete Row ──────────────────────────────────────
+    function addRow() {
+      const label = prompt('New row label:', 'New Metric');
+      if (label === null) return;
+      tableData.rows.push({
+        label:  label.trim() || 'New Metric',
+        values: tableData.columns.map(() => '0'),
+      });
+      markDirty();
+      render();
+    }
+    function deleteRow(ri) {
+      if (!confirm(`Delete row "${tableData.rows[ri].label}"?\nThis cannot be undone until you save.`)) return;
+      tableData.rows.splice(ri, 1);
+      markDirty();
+      render();
+    }
+
+    // ── Save ──────────────────────────────────────────────────
+    async function saveTable() {
+      try {
+        const res = await fetch('/api/table/save', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(tableData),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          showToast(err.error || 'Save failed.', true);
+          return;
+        }
+        dirty = false;
+        document.getElementById('unsaved-badge').classList.add('hidden');
+        showToast('Table saved successfully.');
+      } catch(e) {
+        showToast('Network error.', true);
+      }
+    }
+
+    // ── Load ──────────────────────────────────────────────────
+    async function loadTable() {
+      try {
+        const res = await fetch('/api/table');
+        if (!res.ok) { showToast('Failed to load table.', true); return; }
+        tableData = await res.json();
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('table-wrapper').classList.remove('hidden');
+        render();
+      } catch(e) {
+        showToast('Network error.', true);
+      }
+    }
+
+    // Warn before leaving with unsaved changes
+    window.addEventListener('beforeunload', e => {
+      if (dirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // ── Init ─────────────────────────────────────────────────
     checkAuth().then(user => {
-      if (!checkPermission(user, 'table')) return;   // redirects if no access
+      if (!checkPermission(user, 'table')) return;
       buildSidebar('/table', user);
       document.getElementById('sidebar-user').textContent = 'Logged in as: ' + user.full_name;
+
+      if (user.role === 'admin') {
+        isAdmin = true;
+        const toolbar = document.getElementById('admin-toolbar');
+        toolbar.classList.remove('hidden');
+        toolbar.classList.add('flex');
+      }
+
+      loadTable();
     });
   </script>
 </body>

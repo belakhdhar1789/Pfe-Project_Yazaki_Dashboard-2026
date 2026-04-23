@@ -5,7 +5,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 from flask import Flask, jsonify, send_from_directory, session
 from flask_socketio import SocketIO
 from database import init_db
-from auth import auth_bp
+from auth import auth_bp 
+from table_api import table_bp
+app.register_blueprint(table_bp)
 
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
 app.config['SECRET_KEY'] = 'yazaki-secret-2026'
