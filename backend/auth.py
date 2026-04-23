@@ -123,7 +123,20 @@ def me():
             session.clear()
             return jsonify({'error': 'Access denied.'}), 403
 
-        return jsonify(dict(user))
+        u = dict(user)
+
+        # Admin always has all permissions
+        if u['role'] == 'admin':
+            u['permissions'] = ['handbook', 'dashboard', 'dataCollection',
+                                 'overviewBatch', 'table', 'revisionHistory']
+        else:
+            cursor.execute(
+                "SELECT page_name FROM permissions WHERE user_id = ? AND can_access = 1",
+                (user_id,)
+            )
+            u['permissions'] = [r['page_name'] for r in cursor.fetchall()]
+
+        return jsonify(u)
     finally:
         conn.close()
 
