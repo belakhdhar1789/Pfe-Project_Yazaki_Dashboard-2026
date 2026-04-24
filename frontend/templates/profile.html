@@ -1,227 +1,306 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Yazaki — Profile</title>
+  <title>Profile — Yazaki</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>body { font-family: 'Segoe UI', sans-serif; }</style>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; }
+    #sidebar-panel {
+      position: fixed; top: 0; right: -260px; width: 260px; height: 100vh;
+      background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+      transition: right 0.3s ease; z-index: 1000;
+      display: flex; flex-direction: column;
+    }
+    #sidebar-trigger {
+      position: fixed; top: 0; right: 0; width: 18px; height: 100vh;
+      background: linear-gradient(to bottom, #dc2626, #111);
+      cursor: pointer; z-index: 1001;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #sidebar-trigger span {
+      writing-mode: vertical-rl; color: white; font-size: 10px;
+      font-weight: bold; letter-spacing: 2px; opacity: 0.7;
+    }
+    #sidebar-panel.open { right: 0; }
+    .sidebar-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; border-radius: 8px; margin: 2px 8px;
+      color: #374151; text-decoration: none; font-size: 13px;
+      font-weight: 500; transition: all 0.2s; cursor: pointer;
+    }
+    .sidebar-link:hover { background: #fee2e2; color: #dc2626; }
+    .sidebar-link.active { background: #dc2626; color: white; }
+  </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 overflow-auto">
-<div class="p-8">
-  <div class="max-w-4xl mx-auto">
-    <div class="bg-white rounded-2xl shadow-2xl border-4 border-red-600 p-8">
+<body class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
 
-      <!-- Header -->
-      <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-6 mb-6 text-center shadow-lg">
-        <h1 class="text-3xl font-bold" id="title">Profile</h1>
-        <p class="text-sm mt-2 opacity-90" id="header-name"></p>
+  <div id="sidebar-trigger" onclick="toggleSidebar()"><span>MENU</span></div>
+
+  <div id="sidebar-panel">
+    <div class="bg-gradient-to-b from-red-600 to-black p-4 flex items-center gap-3">
+      <img src="/static/yazaki-logo.png" alt="Yazaki" class="w-10 h-10 object-contain bg-white rounded p-1"/>
+      <div>
+        <div class="text-white font-bold text-sm">YAZAKI</div>
+        <div class="text-red-200 text-xs">Dashboard System</div>
       </div>
-
-      <!-- Personal Information -->
-      <div class="mb-8">
-        <h2 id="label-personal" class="text-xl font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">
-          Personal Information
-        </h2>
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-2" id="label-name">Full Name</label>
-              <input id="field-name" type="text" readonly
-                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700"/>
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-2" id="label-matricule">Matricule</label>
-              <input id="field-matricule" type="text" readonly
-                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700"/>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-2" id="label-email">Email</label>
-              <div class="flex gap-2">
-                <input id="field-email" type="email"
-                  class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700" readonly/>
-                <!-- Edit button -->
-                <button id="btn-edit" onclick="startEditEmail()"
-                  class="px-3 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                  ✏️
-                </button>
-                <!-- Save button (hidden by default) -->
-                <button id="btn-save" onclick="saveEmail()" style="display:none"
-                  class="px-3 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                  ✓
-                </button>
-                <!-- Cancel button (hidden by default) -->
-                <button id="btn-cancel" onclick="cancelEditEmail()" style="display:none"
-                  class="px-3 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                  ✕
-                </button>
-              </div>
-              <p id="email-error" class="text-red-600 text-xs mt-1 hidden"></p>
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-2" id="label-role">Role</label>
-              <input id="field-role" type="text" readonly
-                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700"/>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Language -->
-      <div class="mb-8">
-        <h2 id="label-language" class="text-xl font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">
-          Language
-        </h2>
-        <div class="flex gap-4">
-          <button id="btn-en" onclick="setLanguage('en')"
-            class="flex-1 px-6 py-3 rounded-lg font-semibold bg-red-600 text-white transition-colors">
-            English
-          </button>
-          <button id="btn-fr" onclick="setLanguage('fr')"
-            class="flex-1 px-6 py-3 rounded-lg font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
-            Français
-          </button>
-        </div>
-      </div>
-
-      <!-- Logout -->
-      <div class="pt-6 border-t-2 border-gray-200">
-        <button onclick="handleLogout()"
-          class="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800
-                 text-white font-bold py-4 rounded-lg shadow-lg hover:shadow-xl
-                 transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200">
-          → <span id="label-logout">Logout</span>
-        </button>
-      </div>
-
+    </div>
+    <div class="flex-1 overflow-y-auto py-3" id="sidebar-menu"></div>
+    <div class="p-3 border-t border-gray-100">
+      <div id="sidebar-user" class="text-xs text-gray-500 mb-2 px-2"></div>
+      <button onclick="handleLogout()"
+        class="w-full flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Sign Out
+      </button>
     </div>
   </div>
-</div>
 
-<script src="/static/sidebar.js"></script>
+  <!-- Main -->
+  <div class="p-8 mr-5">
+    <div class="max-w-4xl mx-auto">
+      <div class="bg-white rounded-2xl shadow-2xl border-4 border-red-600 p-8">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-6 mb-6 text-center shadow-lg">
+          <h1 class="text-3xl font-bold" id="hdr-title">Profile</h1>
+          <p class="text-sm mt-2 opacity-90" id="hdr-name">—</p>
+        </div>
+
+        <!-- Personal Info -->
+        <div class="mb-8">
+          <h2 class="text-xl font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200"
+            id="sec-personal">Personal Information</h2>
+
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <!-- Full Name -->
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2" id="lbl-name">Full Name</label>
+                <input id="field-name" type="text" readonly
+                  class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700"/>
+              </div>
+              <!-- Matricule -->
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2" id="lbl-mat">Matricule</label>
+                <input id="field-mat" type="text" readonly
+                  class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700"/>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <!-- Email (editable) -->
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2" id="lbl-email">Email</label>
+                <div class="flex gap-2">
+                  <input id="field-email" type="email" readonly
+                    class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700"/>
+                  <!-- Pencil button -->
+                  <button id="btn-edit-email" onclick="startEditEmail()"
+                    class="px-3 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5
+                           m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <!-- Save button (hidden initially) -->
+                  <button id="btn-save-email" onclick="saveEmail()" style="display:none"
+                    class="px-3 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                  </button>
+                  <!-- Cancel button (hidden initially) -->
+                  <button id="btn-cancel-email" onclick="cancelEmail()" style="display:none"
+                    class="px-3 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+                <p id="email-error" class="text-red-600 text-xs mt-1 hidden"></p>
+              </div>
+              <!-- Role -->
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2" id="lbl-role">Role</label>
+                <input id="field-role" type="text" readonly
+                  class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700"/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Language -->
+        <div class="mb-8">
+          <h2 class="text-xl font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200"
+            id="sec-lang">Language</h2>
+          <div class="flex gap-4">
+            <button id="lang-en" onclick="setLang('en')"
+              class="flex-1 px-6 py-3 rounded-lg font-semibold transition-colors bg-red-600 text-white">
+              English
+            </button>
+            <button id="lang-fr" onclick="setLang('fr')"
+              class="flex-1 px-6 py-3 rounded-lg font-semibold transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300">
+              Français
+            </button>
+          </div>
+        </div>
+
+        <!-- Logout -->
+        <div class="pt-6 border-t-2 border-gray-200">
+          <button onclick="handleLogout()"
+            class="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800
+                   text-white font-bold py-4 rounded-lg shadow-lg hover:shadow-xl
+                   transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200
+                   flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            <span id="btn-logout-label">Logout</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/sidebar.js"></script>
 <script>
-  let currentUser = null;
-  let currentLang = localStorage.getItem('language') || 'en';
+(function(){
+  var t=document.getElementById("sidebar-trigger"),
+      p=document.getElementById("sidebar-panel"),timer;
+  if(!t||!p) return;
+  t.addEventListener("mouseenter",function(){clearTimeout(timer);p.classList.add("open");});
+  t.addEventListener("mouseleave",function(){timer=setTimeout(function(){if(!p.matches(":hover"))p.classList.remove("open");},150);});
+  p.addEventListener("mouseenter",function(){clearTimeout(timer);});
+  p.addEventListener("mouseleave",function(){p.classList.remove("open");});
+}());
+</script>
+  <script>
+    let lang = localStorage.getItem('language') || 'en';
+    let currentUser = null;
+    let originalEmail = '';
 
-  const translations = {
-    en: {
-      title: 'Profile', personal: 'Personal Information',
-      name: 'Full Name', matricule: 'Matricule',
-      email: 'Email', role: 'Role',
-      language: 'Language', logout: 'Logout'
-    },
-    fr: {
-      title: 'Profil', personal: 'Informations Personnelles',
-      name: 'Nom Complet', matricule: 'Matricule',
-      email: 'Email', role: 'Rôle',
-      language: 'Langue', logout: 'Déconnexion'
-    }
-  };
+    const T = {
+      en: {
+        title: 'Profile', personal: 'Personal Information',
+        name: 'Full Name', mat: 'Matricule', email: 'Email', role: 'Role',
+        language: 'Language', logout: 'Logout',
+        emailInvalid: 'Please enter a valid email.',
+        emailSaved: 'Email updated successfully.',
+      },
+      fr: {
+        title: 'Profil', personal: 'Informations Personnelles',
+        name: 'Nom Complet', mat: 'Matricule', email: 'Email', role: 'Rôle',
+        language: 'Langue', logout: 'Déconnexion',
+        emailInvalid: 'Veuillez entrer un email valide.',
+        emailSaved: 'Email mis à jour avec succès.',
+      }
+    };
+    function t(k) { return (T[lang]||T.en)[k]||k; }
 
-  function applyTranslations(lang) {
-    const t = translations[lang];
-    document.getElementById('title').textContent = t.title;
-    document.getElementById('label-personal').textContent = t.personal;
-    document.getElementById('label-name').textContent = t.name;
-    document.getElementById('label-matricule').textContent = t.matricule;
-    document.getElementById('label-email').textContent = t.email;
-    document.getElementById('label-role').textContent = t.role;
-    document.getElementById('label-language').textContent = t.language;
-    document.getElementById('label-logout').textContent = t.logout;
-  }
-
-  function setLanguage(lang) {
-    currentLang = lang;
-    localStorage.setItem('language', lang);
-    applyTranslations(lang);
-    document.getElementById('btn-en').className = `flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${lang === 'en' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
-    document.getElementById('btn-fr').className = `flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${lang === 'fr' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
-  }
-
-  function startEditEmail() {
-    const field = document.getElementById('field-email');
-    field.readOnly = false;
-    field.classList.remove('bg-gray-100', 'border-gray-300');
-    field.classList.add('bg-white', 'border-red-600');
-    document.getElementById('btn-edit').style.display = 'none';
-    document.getElementById('btn-save').style.display = 'block';
-    document.getElementById('btn-cancel').style.display = 'block';
-    field.focus();
-  }
-
-  function cancelEditEmail() {
-    const field = document.getElementById('field-email');
-    field.value = currentUser.email;
-    field.readOnly = true;
-    field.classList.add('bg-gray-100', 'border-gray-300');
-    field.classList.remove('bg-white', 'border-red-600');
-    document.getElementById('btn-edit').style.display = 'block';
-    document.getElementById('btn-save').style.display = 'none';
-    document.getElementById('btn-cancel').style.display = 'none';
-    document.getElementById('email-error').classList.add('hidden');
-  }
-
-  async function saveEmail() {
-    const newEmail = document.getElementById('field-email').value.trim();
-    const errorEl = document.getElementById('email-error');
-    errorEl.classList.add('hidden');
-
-    if (!newEmail || !newEmail.includes('@')) {
-      errorEl.textContent = 'Please enter a valid email.';
-      errorEl.classList.remove('hidden');
-      return;
+    function applyLang() {
+      document.getElementById('hdr-title').textContent    = t('title');
+      document.getElementById('sec-personal').textContent = t('personal');
+      document.getElementById('lbl-name').textContent     = t('name');
+      document.getElementById('lbl-mat').textContent      = t('mat');
+      document.getElementById('lbl-email').textContent    = t('email');
+      document.getElementById('lbl-role').textContent     = t('role');
+      document.getElementById('sec-lang').textContent     = t('language');
+      document.getElementById('btn-logout-label').textContent = t('logout');
+      document.getElementById('lang-en').className = 'flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ' +
+        (lang==='en' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300');
+      document.getElementById('lang-fr').className = 'flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ' +
+        (lang==='fr' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300');
     }
 
-    try {
-      const res = await fetch('/api/auth/update-email', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: newEmail })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        errorEl.textContent = data.error || 'Failed to update email.';
-        errorEl.classList.remove('hidden');
+    function setLang(l) {
+      lang = l;
+      localStorage.setItem('language', l);
+      applyLang();
+    }
+
+    function toggleSidebar() {
+      document.getElementById('sidebar-panel').classList.toggle('open');
+    }
+    document.addEventListener('click', (e) => {
+      const panel   = document.getElementById('sidebar-panel');
+      const trigger = document.getElementById('sidebar-trigger');
+      if (!panel.contains(e.target) && !trigger.contains(e.target)) panel.classList.remove('open');
+    });
+
+    // ── Email editing ──────────────────────────────────────
+    function startEditEmail() {
+      const input = document.getElementById('field-email');
+      input.readOnly = false;
+      input.className = 'flex-1 px-4 py-3 border-2 border-red-600 rounded-lg bg-white text-gray-900';
+      input.focus();
+      document.getElementById('btn-edit-email').style.display   = 'none';
+      document.getElementById('btn-save-email').style.display   = '';
+      document.getElementById('btn-cancel-email').style.display = '';
+    }
+
+    async function saveEmail() {
+      const input = document.getElementById('field-email');
+      const email = input.value.trim();
+      const errEl = document.getElementById('email-error');
+      if (!email || !email.includes('@')) {
+        errEl.textContent = t('emailInvalid');
+        errEl.classList.remove('hidden');
         return;
       }
-      currentUser.email = newEmail;
-      cancelEditEmail();
-    } catch {
-      errorEl.textContent = 'Cannot reach the server.';
-      errorEl.classList.remove('hidden');
+      errEl.classList.add('hidden');
+      try {
+        const res  = await fetch('/api/auth/update-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (!res.ok) { errEl.textContent = data.error; errEl.classList.remove('hidden'); return; }
+        originalEmail = email;
+        currentUser.email = email;
+        resetEmailField();
+      } catch(e) {
+        errEl.textContent = 'Server error.';
+        errEl.classList.remove('hidden');
+      }
     }
-  }
 
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    sessionStorage.clear();
-    localStorage.removeItem('role');
-    localStorage.removeItem('full_name');
-    window.location.href = '/';
-  }
+    function cancelEmail() {
+      document.getElementById('field-email').value = originalEmail;
+      document.getElementById('email-error').classList.add('hidden');
+      resetEmailField();
+    }
 
-  (async () => {
-    const user = await checkAuth();
-    if (!user) return;
-    currentUser = user;
+    function resetEmailField() {
+      const input = document.getElementById('field-email');
+      input.readOnly = true;
+      input.className = 'flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700';
+      document.getElementById('btn-edit-email').style.display   = '';
+      document.getElementById('btn-save-email').style.display   = 'none';
+      document.getElementById('btn-cancel-email').style.display = 'none';
+    }
 
-    document.getElementById('header-name').textContent = user.full_name;
-    document.getElementById('field-name').value = user.full_name;
-    document.getElementById('field-matricule').value = user.matricule;
-    document.getElementById('field-role').value = user.role.charAt(0).toUpperCase() + user.role.slice(1);
-
-    // Load email from server
-    const emailRes = await fetch('/api/auth/me');
-    const meData = await emailRes.json();
-    document.getElementById('field-email').value = meData.email || '';
-    currentUser.email = meData.email || '';
-
-    applyTranslations(currentLang);
-    setLanguage(currentLang);
-    buildSidebar('/profile');
-  })();
-</script>
+    // ── Init ───────────────────────────────────────────────
+    checkAuth().then(user => {
+      currentUser = user;
+      originalEmail = user.email;
+      buildSidebar('/profile', user);
+      document.getElementById('sidebar-user').textContent = 'Logged in as: ' + user.full_name;
+      document.getElementById('hdr-name').textContent   = user.full_name;
+      document.getElementById('field-name').value       = user.full_name;
+      document.getElementById('field-mat').value        = user.matricule;
+      document.getElementById('field-email').value      = user.email;
+      document.getElementById('field-role').value       = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+      applyLang();
+    });
+  </script>
 </body>
 </html>
