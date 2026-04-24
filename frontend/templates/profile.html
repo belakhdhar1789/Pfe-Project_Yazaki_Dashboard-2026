@@ -206,15 +206,6 @@
       applyLang();
     }
 
-    function toggleSidebar() {
-      document.getElementById('sidebar-panel').classList.toggle('open');
-    }
-    document.addEventListener('click', (e) => {
-      const panel   = document.getElementById('sidebar-panel');
-      const trigger = document.getElementById('sidebar-trigger');
-      if (!panel.contains(e.target) && !trigger.contains(e.target)) panel.classList.remove('open');
-    });
-
     // ── Email editing ──────────────────────────────────────
     function startEditEmail() {
       const input = document.getElementById('field-email');

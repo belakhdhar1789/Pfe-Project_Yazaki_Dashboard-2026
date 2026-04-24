@@ -108,10 +108,6 @@
     let editingId = null;
     let adding    = false;
 
-    const trigger = document.getElementById('sidebar-trigger');
-      if (!panel.contains(e.target) && !trigger.contains(e.target)) panel.classList.remove('open');
-    });
-
     // ── Render table ──────────────────────────────────────────
     function renderTable() {
       const tbody = document.getElementById('rev-tbody');
@@ -181,8 +177,6 @@
             </td>` : ''}`;
         }
         tbody.appendChild(tr);
-      });
-
       // ── Add new row ──
       if (adding) {
         const tr = document.createElement('tr');

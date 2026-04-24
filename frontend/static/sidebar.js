@@ -3,12 +3,10 @@
 // Trigger zone (right: 0, z-index 30) → panel slides in (translateX, z-index 40).
 
 const MENU_ITEMS = [
-  { label: 'GUM vs AWT HANDBOOK', path: '/handbook',         perm: 'handbook'        },
-  { label: 'GUM vs AWT Dashboard', path: '/dashboard',       perm: 'dashboard'       },
-  { label: 'DATA Collection',      path: '/data-collection', perm: 'dataCollection'  },
-  { label: 'Batch-KSK',            path: '/batch-ksk',       perm: 'BatchKsk'        },
-  { label: 'Table',                path: '/table',            perm: 'table'           },
-  { label: 'Revision History',     path: '/revision-history', perm: 'revisionHistory' },
+  { label: 'GUM vs AWT HANDBOOK', path: '/handbook',          perm: 'handbook'        },
+  { label: 'Batch-KSK',           path: '/batch-ksk',         perm: 'BatchKsk'        },
+  { label: 'Table',               path: '/table',              perm: 'table'           },
+  { label: 'Revision History',    path: '/revision-history',  perm: 'revisionHistory' },
 ];
 
 // ── checkAuth ─────────────────────────────────────────────────────────────────

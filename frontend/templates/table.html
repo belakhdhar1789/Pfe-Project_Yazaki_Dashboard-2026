@@ -191,11 +191,6 @@
       '#f0fdfa','#f0fdfa',
     ];
 
-    const trigger = document.getElementById('sidebar-trigger');
-      if (!panel.contains(e.target) && !trigger.contains(e.target))
-        panel.classList.remove('open');
-    });
-
     // ── Toast ─────────────────────────────────────────────────
     function showToast(msg, isError = false) {
       const t = document.getElementById('toast');
@@ -248,8 +243,6 @@
             dragIndex = ci;
             th.classList.add('dragging-col');
             e.dataTransfer.effectAllowed = 'move';
-          });
-
           // Editable name
           const span = document.createElement('span');
           span.textContent     = col;
@@ -258,8 +251,6 @@
           span.addEventListener('input', () => {
             tableData.columns[ci] = span.textContent.trim();
             markDirty();
-          });
-
           // Delete button
           const del = document.createElement('span');
           del.className   = 'del-col-btn';
@@ -321,8 +312,6 @@
             dragIndex = ri;
             tr.classList.add('dragging-row');
             e.dataTransfer.effectAllowed = 'move';
-          });
-
           // Editable label
           const span = document.createElement('span');
           span.textContent     = row.label;
@@ -331,8 +320,6 @@
           span.addEventListener('input', () => {
             tableData.rows[ri].label = span.textContent.trim();
             markDirty();
-          });
-
           // Delete button
           const del = document.createElement('span');
           del.className   = 'del-row-btn';
@@ -383,11 +370,7 @@
             td.textContent = val;
           }
           tr.appendChild(td);
-        });
-
         tbody.appendChild(tr);
-      });
-
       // Global dragend cleanup
       document.addEventListener('dragend', () => {
         document.querySelectorAll('.dragging-row, .dragging-col, .drag-over-row, .drag-over-col')
@@ -493,8 +476,6 @@
 
     window.addEventListener('beforeunload', e => {
       if (dirty) { e.preventDefault(); e.returnValue = ''; }
-    });
-
     // ── Init ─────────────────────────────────────────────────
     checkAuth().then(user => {
       if (!checkPermission(user, 'table')) return;
