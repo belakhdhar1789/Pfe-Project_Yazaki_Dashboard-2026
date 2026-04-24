@@ -105,3 +105,15 @@ async function handleLogout() {
   try { await fetch('/api/auth/logout', { method: 'POST' }); } catch(e) {}
   window.location.href = '/';
 }
+
+// ── Hover-to-open sidebar ────────────────────────────────────────────────────
+// Runs immediately (script is at bottom of <body> so DOM is already ready).
+// Trigger bar → mouseenter opens panel. Mouse leaving panel → closes it.
+(function initSidebarHover() {
+  const trigger = document.getElementById('sidebar-trigger');
+  const panel   = document.getElementById('sidebar-panel');
+  if (!trigger || !panel) return;
+
+  trigger.addEventListener('mouseenter', () => panel.classList.add('open'));
+  panel.addEventListener('mouseleave',   () => panel.classList.remove('open'));
+}());
