@@ -106,14 +106,14 @@ async function handleLogout() {
   window.location.href = '/';
 }
 
-// ── Hover-to-open sidebar ────────────────────────────────────────────────────
-// Runs immediately (script is at bottom of <body> so DOM is already ready).
-// Trigger bar → mouseenter opens panel. Mouse leaving panel → closes it.
-(function initSidebarHover() {
-  const trigger = document.getElementById('sidebar-trigger');
-  const panel   = document.getElementById('sidebar-panel');
-  if (!trigger || !panel) return;
-
-  trigger.addEventListener('mouseenter', () => panel.classList.add('open'));
-  panel.addEventListener('mouseleave',   () => panel.classList.remove('open'));
+// ── Hover-to-open sidebar (pure CSS injection — no timing issues) ─────────────
+// sidebar-trigger and sidebar-panel are siblings in the DOM, so the CSS
+// sibling selector (~) opens the panel whenever the trigger OR panel is hovered.
+(function injectSidebarHoverCSS() {
+  const style = document.createElement('style');
+  style.textContent = `
+    #sidebar-trigger:hover ~ #sidebar-panel,
+    #sidebar-panel:hover { right: 0 !important; }
+  `;
+  document.head.appendChild(style);
 }());
