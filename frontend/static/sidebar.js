@@ -6,7 +6,7 @@ const MENU_ITEMS = [
   { label: 'GUM vs AWT HANDBOOK', path: '/handbook',        icon: 'book',    perm: 'handbook'        },
   { label: 'GUM vs AWT Dashboard', path: '/dashboard',      icon: 'chart',   perm: 'dashboard'       },
   { label: 'DATA Collection',      path: '/data-collection',icon: 'table',   perm: 'dataCollection'  },
-  { label: 'Overview Batch-KSK',   path: '/overview-batch', icon: 'grid',    perm: 'overviewBatch'   },
+  { label: 'Batch-KSK',            path: '/batch-ksk',      icon: 'grid',    perm: 'BatchKsk'        },
   { label: 'Table',                path: '/table',           icon: 'list',    perm: 'table'           },
   { label: 'Revision History',     path: '/revision-history',icon: 'clock',  perm: 'revisionHistory' },
 ];

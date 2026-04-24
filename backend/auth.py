@@ -4,7 +4,7 @@ from datetime import datetime
 
 auth_bp = Blueprint('auth', __name__)
 
-VALID_PAGES = ['handbook', 'dashboard', 'dataCollection', 'overviewBatch', 'table', 'revisionHistory']
+VALID_PAGES = ['handbook', 'dashboard', 'dataCollection', 'BatchKsk', 'table', 'revisionHistory']
 
 def now_str():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -128,7 +128,7 @@ def me():
         # Admin always has all permissions
         if u['role'] == 'admin':
             u['permissions'] = ['handbook', 'dashboard', 'dataCollection',
-                                 'overviewBatch', 'table', 'revisionHistory']
+                                 'BatchKsk', 'table', 'revisionHistory']
         else:
             cursor.execute(
                 "SELECT page_name FROM permissions WHERE user_id = ? AND can_access = 1",
