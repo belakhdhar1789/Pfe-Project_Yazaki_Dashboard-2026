@@ -41,7 +41,7 @@ def dashboard():
 def data_collection():
     return send_from_directory(TEMPLATES, 'data_collection.html')
 
-@app.route('/overview-batch')
+@app.route('/batch-ksk')
 def overview_batch():
     return send_from_directory(TEMPLATES, 'batch_ksk.html')
 
