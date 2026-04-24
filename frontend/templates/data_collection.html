@@ -40,9 +40,9 @@
 </head>
 <body class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
 
-  <div id="sidebar-trigger" onclick="toggleSidebar()"><span>MENU</span></div>
+  <div id="sidebar-trigger" onmouseenter="openSidebar()"><span>MENU</span></div>
 
-  <div id="sidebar-panel">
+  <div id="sidebar-panel" onmouseleave="closeSidebar()">
     <div class="bg-gradient-to-b from-red-600 to-black p-4 flex items-center gap-3">
       <img src="/static/yazaki-logo.png" alt="Yazaki" class="w-10 h-10 object-contain bg-white rounded p-1"/>
       <div>
@@ -142,17 +142,7 @@
   </div>
 
   <script src="/static/sidebar.js"></script>
-<script>
-(function(){
-  var t=document.getElementById("sidebar-trigger"),
-      p=document.getElementById("sidebar-panel"),timer;
-  if(!t||!p) return;
-  t.addEventListener("mouseenter",function(){clearTimeout(timer);p.classList.add("open");});
-  t.addEventListener("mouseleave",function(){timer=setTimeout(function(){if(!p.matches(":hover"))p.classList.remove("open");},150);});
-  p.addEventListener("mouseenter",function(){clearTimeout(timer);});
-  p.addEventListener("mouseleave",function(){p.classList.remove("open");});
-}());
-</script>
+
   <script>
     checkAuth().then(user => {
       buildSidebar('/data-collection', user);

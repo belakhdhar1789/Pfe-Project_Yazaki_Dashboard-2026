@@ -106,26 +106,8 @@ async function handleLogout() {
   window.location.href = '/';
 }
 
-// ── Hover-to-open sidebar ─────────────────────────────────────────────────────
-// Uses a delayed-close timer so the panel stays open while the mouse
-// travels from the trigger into the panel (avoids the 0.3s transition gap).
-(function initSidebarHover() {
-  const trigger = document.getElementById('sidebar-trigger');
-  const panel   = document.getElementById('sidebar-panel');
-  if (!trigger || !panel) return;
-
-  let closeTimer = null;
-
-  function openPanel()  {
-    clearTimeout(closeTimer);
-    panel.classList.add('open');
-  }
-  function scheduleClose() {
-    closeTimer = setTimeout(() => panel.classList.remove('open'), 200);
-  }
-
-  trigger.addEventListener('mouseenter', openPanel);
-  trigger.addEventListener('mouseleave', scheduleClose);
-  panel.addEventListener('mouseenter',   openPanel);
-  panel.addEventListener('mouseleave',   scheduleClose);
-}());
+// ── Sidebar open / close ──────────────────────────────────────────────────────
+// Called via onmouseenter / onmouseleave inline attributes on the HTML elements.
+// Same pattern as the left sidebar in admin.html — simple and reliable.
+function openSidebar()  { document.getElementById('sidebar-panel').classList.add('open');    }
+function closeSidebar() { document.getElementById('sidebar-panel').classList.remove('open'); }
