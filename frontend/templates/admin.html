@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Panel — Yazaki</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/sidebar.js"></script>
   <style>
     body { font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; }
 
@@ -18,15 +19,46 @@
       display: flex; flex-direction: column;
     }
     #sidebar.open { left: 0; }
-    #sidebar-trigger {
+    #left-trigger {
       position: fixed; top: 0; left: 0; width: 16px; height: 100vh;
       background: linear-gradient(to bottom, #dc2626, #111);
       z-index: 51; cursor: pointer;
     }
 
-    /* ── Main content (shifts right when sidebar open) ── */
+    /* ── Right Navigation Sidebar ── */
+    #sidebar-panel {
+      position: fixed; top: 0; right: 0; width: 320px; height: 100vh;
+      background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+      border-left: 4px solid #dc2626;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      z-index: 40;
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+    }
+    #nav-trigger {
+      position: fixed; top: 0; right: 0; width: 16px; height: 100vh;
+      z-index: 30; cursor: pointer;
+    }
+    #sidebar-panel.open { transform: translateX(0); }
+    .sidebar-btn {
+      display: block; width: 100%;
+      border: 2px solid #d1d5db; border-radius: 12px;
+      padding: 14px 16px; text-align: center;
+      font-weight: 700; font-size: 14px; color: #1f2937;
+      background: white; text-decoration: none;
+      transition: all 0.2s ease; margin-bottom: 10px;
+    }
+    .sidebar-btn:hover { border-color: #dc2626; color: #dc2626; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .sidebar-btn.active {
+      background: linear-gradient(to right, #dc2626, #b91c1c);
+      color: white; border-color: #111; box-shadow: 0 4px 12px rgba(220,38,38,0.3);
+    }
+
+    /* ── Main content ── */
     #main {
-      margin-left: 16px;
+      margin-left: 16px; margin-right: 16px;
       height: 100vh;
       display: flex; flex-direction: column;
       overflow: hidden;
@@ -49,14 +81,32 @@
 </head>
 <body class="bg-white">
 
-  <!-- ── Hover trigger strip ── -->
-  <div id="sidebar-trigger"
-    onmouseenter="openSidebar()"
-    title="Open sidebar">
+  <!-- ── Left hover trigger ── -->
+  <div id="left-trigger" onmouseenter="openLeftSidebar()"></div>
+
+  <!-- ── Right nav trigger ── -->
+  <div id="nav-trigger" onmouseenter="openSidebar()"></div>
+
+  <!-- ── Right Navigation Sidebar ── -->
+  <div id="sidebar-panel" onmouseleave="closeSidebar()">
+    <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-4 m-4 shadow-lg text-center">
+      <h2 class="text-xl font-bold">Navigation Menu</h2>
+      <p class="text-xs mt-1 opacity-90">Dashboard de Suivi</p>
+    </div>
+    <div class="flex-1 overflow-y-auto px-4" id="sidebar-menu"></div>
+    <div class="p-4 border-t-2 border-gray-300 text-center">
+      <div id="sidebar-user" class="text-xs text-gray-600 font-semibold mb-2"></div>
+      <p class="text-xs text-gray-500 mb-3">YAZAKI Manufacturing Dashboard</p>
+      <button onclick="handleLogout()"
+        class="w-full border-2 rounded-xl p-3 text-center font-bold text-sm
+               bg-red-600 text-white border-red-600 hover:bg-red-700 transition-colors">
+        Sign Out
+      </button>
+    </div>
   </div>
 
   <!-- ── Left Sidebar ── -->
-  <div id="sidebar" onmouseleave="closeSidebar()">
+  <div id="sidebar" onmouseleave="closeLeftSidebar()">
 
     <!-- Logo + title -->
     <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-4 m-4 text-center shadow-lg">
@@ -243,8 +293,8 @@
     function t(key) { return (T[lang] || T.en)[key] || key; }
 
     // ── Sidebar ───────────────────────────────────────────────
-    function openSidebar()  { document.getElementById('sidebar').classList.add('open'); }
-    function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); }
+    function openLeftSidebar()  { document.getElementById('sidebar').classList.add('open'); }
+    function closeLeftSidebar() { document.getElementById('sidebar').classList.remove('open'); }
 
     // ── Language ──────────────────────────────────────────────
     function setLang(l) {
@@ -561,6 +611,7 @@
         currentAdmin = user;
         document.getElementById('sb-admin-name').textContent = user.full_name;
         document.getElementById('sb-admin-mat').textContent  = 'Matricule: ' + user.matricule;
+        buildSidebar('/admin', user);
       } catch(e) {
         window.location.href = '/';
         return;
