@@ -34,7 +34,7 @@
       background: white; text-decoration: none;
       transition: all 0.2s ease; margin-bottom: 10px;
     }
-    .sidebar-btn:hover { border-color: #dc2626; color: #dc2626; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .sidebar-btn:hover  { border-color: #dc2626; color: #dc2626; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .sidebar-btn.active {
       background: linear-gradient(to right, #dc2626, #b91c1c);
       color: white; border-color: #111; box-shadow: 0 4px 12px rgba(220,38,38,0.3);
@@ -44,13 +44,18 @@
     .tbl { border-collapse: collapse; font-size: 12px; }
     .tbl th, .tbl td {
       border: 2px solid #6b7280;
-      padding: 6px 12px;
+      padding: 5px 10px;
       text-align: center;
       white-space: nowrap;
     }
-    .th-dark   { background: #374151; color: white; font-weight: 700; }
-    .cell-entry   { background: #ffffff; }
+    .th-dark    { background: #374151; color: white; font-weight: 700; }
+    .cell-entry { background: #ffffff; min-width: 60px; height: 28px; }
     .cell-formula { background: #fde047; color: #111; font-weight: 600; }
+    /* Station column colours — alternating */
+    .col-odd  { background: #ffffff; }
+    .col-even { background: #bbf7d0; }  /* green-200 */
+    .th-odd   { background: #374151; color: white; font-weight: 700; }
+    .th-even  { background: #166534; color: white; font-weight: 700; }
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -101,6 +106,10 @@
           <div class="w-6 h-4 bg-yellow-300 border-2 border-gray-400 rounded-sm"></div>
           <span>Formula</span>
         </div>
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-4 bg-green-200 border-2 border-gray-400 rounded-sm"></div>
+          <span>Station (even)</span>
+        </div>
       </div>
 
       <!-- ── Stats bar ── -->
@@ -127,48 +136,152 @@
         </table>
       </div>
 
-      <!-- ── Left Table ── -->
+      <!-- ── Both tables side by side ── -->
       <div class="overflow-x-auto">
-        <table class="tbl w-full" id="main-table">
-          <thead>
-            <tr>
-              <th class="th-dark">No</th>
-              <th class="th-dark">Date</th>
-              <th class="th-dark">Project</th>
-              <th class="th-dark">Family</th>
-              <th class="th-dark">Spec</th>
-              <th class="th-dark">F Number</th>
-              <th class="th-dark">Part Number / Carset</th>
-              <th class="th-dark">P3 GUM</th>
-            </tr>
-          </thead>
-          <tbody id="table-body"></tbody>
-        </table>
+        <div class="flex gap-4 items-start" style="min-width: max-content;">
+
+          <!-- LEFT TABLE -->
+          <table class="tbl flex-shrink-0" id="left-table">
+            <thead>
+              <tr>
+                <th class="th-dark">No</th>
+                <th class="th-dark">Date</th>
+                <th class="th-dark">Project</th>
+                <th class="th-dark">Family</th>
+                <th class="th-dark">Spec</th>
+                <th class="th-dark">F Number</th>
+                <th class="th-dark">Part Number<br/>/ Carset</th>
+                <th class="th-dark">P3 GUM</th>
+              </tr>
+            </thead>
+            <tbody id="left-body"></tbody>
+          </table>
+
+          <!-- RIGHT TABLE — stations grid -->
+          <table class="tbl flex-shrink-0" id="right-table">
+            <thead>
+              <!-- Row 1: station numbers -->
+              <tr>
+                <th class="th-dark" rowspan="3"
+                    style="writing-mode:vertical-lr; transform:rotate(180deg); padding:12px 6px;">
+                  Part Number<br/>/ Carset
+                </th>
+                <th class="th-odd" colspan="2">1</th>
+                <th class="th-even" colspan="2">2</th>
+                <th class="th-odd" colspan="2">3</th>
+                <th class="th-even" colspan="2">4</th>
+                <th class="th-odd" colspan="2">5</th>
+                <th class="th-even" colspan="2">6</th>
+                <th class="th-odd" colspan="2">7</th>
+                <th class="th-even" colspan="2">8</th>
+                <th class="th-odd" colspan="2">9</th>
+                <th class="th-even" colspan="2">10</th>
+              </tr>
+              <!-- Row 2: station names -->
+              <tr>
+                <th class="th-odd"  colspan="2">SPS1</th>
+                <th class="th-even" colspan="2">SPS2</th>
+                <th class="th-odd"  colspan="2">SPS3</th>
+                <th class="th-even" colspan="2">SPS4</th>
+                <th class="th-odd"  colspan="2">SPS5</th>
+                <th class="th-even" colspan="2">SPS6</th>
+                <th class="th-odd"  colspan="2">SPS7</th>
+                <th class="th-even" colspan="2">SPS8</th>
+                <th class="th-odd"  colspan="2">Wasurembo</th>
+                <th class="th-even" colspan="2">Lay 1</th>
+              </tr>
+              <!-- Row 3: GUM / AWT -->
+              <tr id="gum-awt-row"></tr>
+            </thead>
+            <tbody id="right-body"></tbody>
+          </table>
+
+        </div>
       </div>
 
     </div>
   </div>
 
   <script>
-    // ── Build 10 empty rows ───────────────────────────────────
-    function buildRows() {
-      const tbody = document.getElementById('table-body');
-      for (let i = 1; i <= 10; i++) {
+    const ROW_COUNT = 10;
+    const STATIONS = [
+      { name:'SPS1',      even:false },
+      { name:'SPS2',      even:true  },
+      { name:'SPS3',      even:false },
+      { name:'SPS4',      even:true  },
+      { name:'SPS5',      even:false },
+      { name:'SPS6',      even:true  },
+      { name:'SPS7',      even:false },
+      { name:'SPS8',      even:true  },
+      { name:'Wasurembo', even:false },
+      { name:'Lay 1',     even:true  },
+    ];
+
+    // ── Build GUM/AWT header row ──────────────────────────────
+    function buildGumAwtRow() {
+      const row = document.getElementById('gum-awt-row');
+      STATIONS.forEach(s => {
+        const cls = s.even ? 'th-even' : 'th-odd';
+        ['GUM','AWT'].forEach(label => {
+          const th = document.createElement('th');
+          th.className = cls;
+          th.textContent = label;
+          row.appendChild(th);
+        });
+      });
+    }
+
+    // ── Build left table rows ─────────────────────────────────
+    function buildLeftRows() {
+      const tbody = document.getElementById('left-body');
+      for (let i = 1; i <= ROW_COUNT; i++) {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition-colors';
         tr.innerHTML = `
           <td class="cell-entry font-semibold text-gray-500">${i}</td>
-          <td class="cell-entry"></td>
-          <td class="cell-entry"></td>
-          <td class="cell-entry"></td>
-          <td class="cell-entry"></td>
-          <td class="cell-entry"></td>
-          <td class="cell-formula"></td>
-          <td class="cell-formula"></td>`;
+          <td class="cell-entry" style="min-width:90px;"></td>
+          <td class="cell-entry" style="min-width:70px;"></td>
+          <td class="cell-entry" style="min-width:70px;"></td>
+          <td class="cell-entry" style="min-width:60px;"></td>
+          <td class="cell-entry" style="min-width:80px;"></td>
+          <td class="cell-formula" style="min-width:120px;"></td>
+          <td class="cell-formula" style="min-width:80px;"></td>`;
         tbody.appendChild(tr);
       }
     }
-    buildRows();
+
+    // ── Build right table rows ────────────────────────────────
+    function buildRightRows() {
+      const tbody = document.getElementById('right-body');
+      for (let i = 0; i < ROW_COUNT; i++) {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 transition-colors';
+
+        // Part Number/Carset label cell
+        const labelTd = document.createElement('td');
+        labelTd.className = 'cell-entry';
+        labelTd.style.minWidth = '100px';
+        tr.appendChild(labelTd);
+
+        // GUM + AWT cells for each station
+        STATIONS.forEach(s => {
+          const cls = s.even ? 'col-even' : 'col-odd';
+          ['GUM','AWT'].forEach(() => {
+            const td = document.createElement('td');
+            td.className = cls;
+            td.style.minWidth = '55px';
+            td.style.height = '28px';
+            tr.appendChild(td);
+          });
+        });
+
+        tbody.appendChild(tr);
+      }
+    }
+
+    buildGumAwtRow();
+    buildLeftRows();
+    buildRightRows();
 
     // ── Init ─────────────────────────────────────────────────
     checkAuth().then(user => {
