@@ -4,9 +4,10 @@
 
 const MENU_ITEMS = [
   { label: 'GUM vs AWT HANDBOOK', path: '/handbook',          perm: 'handbook'        },
-  { label: 'Batch-KSK',           path: '/batch-ksk',         perm: 'BatchKsk'        },
-  { label: 'Table',               path: '/table',              perm: 'table'           },
-  { label: 'Revision History',    path: '/revision-history',  perm: 'revisionHistory' },
+  { label: 'DATA Collection',     path: '/data-collection',   perm: 'dataCollection'  },
+  { label: 'Batch-KSK',          path: '/batch-ksk',          perm: 'BatchKsk'        },
+  { label: 'Table',              path: '/table',               perm: 'table'           },
+  { label: 'Revision History',   path: '/revision-history',   perm: 'revisionHistory' },
 ];
 
 // ── checkAuth ─────────────────────────────────────────────────────────────────

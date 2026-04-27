@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DATA Collection — Yazaki</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/sidebar.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; }
+
+    /* ── Right Navigation Sidebar ── */
+    #sidebar-panel {
+      position: fixed; top: 0; right: 0; width: 320px; height: 100vh;
+      background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+      border-left: 4px solid #dc2626;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      z-index: 40;
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+    }
+    #sidebar-trigger {
+      position: fixed; top: 0; right: 0; width: 16px; height: 100vh;
+      z-index: 30; cursor: pointer;
+    }
+    #sidebar-panel.open { transform: translateX(0); }
+    .sidebar-btn {
+      display: block; width: 100%;
+      border: 2px solid #d1d5db; border-radius: 12px;
+      padding: 14px 16px; text-align: center;
+      font-weight: 700; font-size: 14px; color: #1f2937;
+      background: white; text-decoration: none;
+      transition: all 0.2s ease; margin-bottom: 10px;
+    }
+    .sidebar-btn:hover { border-color: #dc2626; color: #dc2626; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .sidebar-btn.active {
+      background: linear-gradient(to right, #dc2626, #b91c1c);
+      color: white; border-color: #111; box-shadow: 0 4px 12px rgba(220,38,38,0.3);
+    }
+
+    /* ── Table styles ── */
+    .tbl { border-collapse: collapse; font-size: 12px; }
+    .tbl th, .tbl td {
+      border: 2px solid #6b7280;
+      padding: 6px 12px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .th-dark   { background: #374151; color: white; font-weight: 700; }
+    .cell-entry   { background: #ffffff; }
+    .cell-formula { background: #fde047; color: #111; font-weight: 600; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+
+  <!-- ── Right trigger ── -->
+  <div id="sidebar-trigger" onmouseenter="openSidebar()"></div>
+
+  <!-- ── Right Navigation Sidebar ── -->
+  <div id="sidebar-panel" onmouseleave="closeSidebar()">
+    <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-4 m-4 shadow-lg text-center">
+      <h2 class="text-xl font-bold">Navigation Menu</h2>
+      <p class="text-xs mt-1 opacity-90">Dashboard de Suivi</p>
+    </div>
+    <div class="flex-1 overflow-y-auto px-4" id="sidebar-menu"></div>
+    <div class="p-4 border-t-2 border-gray-300 text-center">
+      <div id="sidebar-user" class="text-xs text-gray-600 font-semibold mb-2"></div>
+      <p class="text-xs text-gray-500 mb-3">YAZAKI Manufacturing Dashboard</p>
+      <button onclick="handleLogout()"
+        class="w-full border-2 rounded-xl p-3 text-center font-bold text-sm
+               bg-red-600 text-white border-red-600 hover:bg-red-700 transition-colors">
+        Sign Out
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Main ── -->
+  <div class="p-6 mr-5">
+    <div class="bg-white rounded-2xl shadow-2xl border-4 border-red-600 p-6">
+
+      <!-- Page header -->
+      <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl
+                  p-5 mb-6 text-center shadow-lg">
+        <h1 class="text-3xl font-bold">DATA Collection</h1>
+        <p class="text-sm mt-1 opacity-90">Collecte des Données de Production</p>
+      </div>
+
+      <!-- Legend -->
+      <div class="mb-4 flex items-center gap-6 text-xs font-medium">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-4 bg-white border-2 border-gray-400 rounded-sm"></div>
+          <span>Data Entry</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-4 bg-yellow-300 border-2 border-gray-400 rounded-sm"></div>
+          <span>Formula</span>
+        </div>
+      </div>
+
+      <!-- ── Stats bar ── -->
+      <div class="overflow-x-auto mb-6">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th class="th-dark">Working Time</th>
+              <th class="th-dark">Target Qty (shift)</th>
+              <th class="th-dark">NPT</th>
+              <th class="th-dark">Tact Time</th>
+              <th class="th-dark">Average GUM (hours)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="cell-entry font-semibold">460 min</td>
+              <td class="cell-formula">220</td>
+              <td class="cell-entry font-semibold">5,0%</td>
+              <td class="cell-formula">2,09 min</td>
+              <td class="cell-formula">#DIV/0!</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── Left Table ── -->
+      <div class="overflow-x-auto">
+        <table class="tbl w-full" id="main-table">
+          <thead>
+            <tr>
+              <th class="th-dark">No</th>
+              <th class="th-dark">Date</th>
+              <th class="th-dark">Project</th>
+              <th class="th-dark">Family</th>
+              <th class="th-dark">Spec</th>
+              <th class="th-dark">F Number</th>
+              <th class="th-dark">Part Number / Carset</th>
+              <th class="th-dark">P3 GUM</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ── Build 10 empty rows ───────────────────────────────────
+    function buildRows() {
+      const tbody = document.getElementById('table-body');
+      for (let i = 1; i <= 10; i++) {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 transition-colors';
+        tr.innerHTML = `
+          <td class="cell-entry font-semibold text-gray-500">${i}</td>
+          <td class="cell-entry"></td>
+          <td class="cell-entry"></td>
+          <td class="cell-entry"></td>
+          <td class="cell-entry"></td>
+          <td class="cell-entry"></td>
+          <td class="cell-formula"></td>
+          <td class="cell-formula"></td>`;
+        tbody.appendChild(tr);
+      }
+    }
+    buildRows();
+
+    // ── Init ─────────────────────────────────────────────────
+    checkAuth().then(user => {
+      if (!checkPermission(user, 'dataCollection')) return;
+      buildSidebar('/data-collection', user);
+      document.getElementById('sidebar-user').textContent = 'Logged in as: ' + user.full_name;
+    });
+  </script>
+</body>
+</html>
