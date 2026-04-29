@@ -114,6 +114,32 @@ def init_db():
                 (i, f'Workstation {i}')
             )
 
+    # ── Data Collection config table ─────────────────────────
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS data_collection_config (
+            id         INTEGER PRIMARY KEY,
+            data       TEXT NOT NULL,
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+    ''')
+
+    # Seed with empty 10-row structure
+    cursor.execute("SELECT COUNT(*) FROM data_collection_config")
+    if cursor.fetchone()[0] == 0:
+        _stations = ['SPS1','SPS2','SPS3','SPS4','SPS5','SPS6',
+                     'SPS7','SPS8','Wasurembo','Lay 1']
+        _rows = []
+        for _i in range(1, 11):
+            _rows.append({
+                'no': _i, 'date': '', 'project': '', 'family': '',
+                'spec': '', 'f_number': '', 'part_number': '', 'p3_gum': '',
+                'stations': {s: {'gum': '', 'awt': ''} for s in _stations}
+            })
+        cursor.execute(
+            "INSERT INTO data_collection_config (id, data) VALUES (1, ?)",
+            (json.dumps({'working_time': '460', 'npt': '5,0', 'rows': _rows}),)
+        )
+
     # ── Table config table ────────────────────────────────────
     # Stores the full table as a single JSON document.
     # Columns: list of station names  ["WS 1", "WS 2", …]

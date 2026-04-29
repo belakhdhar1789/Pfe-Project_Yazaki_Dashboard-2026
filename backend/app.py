@@ -7,6 +7,8 @@ from flask_socketio import SocketIO
 from database import init_db
 from auth import auth_bp 
 from table_api import table_bp
+from data_collection_api import dc_bp
+app.register_blueprint(dc_bp)
 
 
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
