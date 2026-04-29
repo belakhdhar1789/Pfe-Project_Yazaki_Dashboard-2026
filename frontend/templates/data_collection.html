@@ -48,14 +48,47 @@
       text-align: center;
       white-space: nowrap;
     }
-    .th-dark    { background: #374151; color: white; font-weight: 700; }
-    .cell-entry { background: #ffffff; min-width: 60px; height: 28px; }
+    .th-dark      { background: #374151; color: white; font-weight: 700; }
+    .cell-entry   { background: #ffffff; min-width: 60px; height: 28px; }
     .cell-formula { background: #fde047; color: #111; font-weight: 600; }
-    /* Station column colours — alternating */
-    .col-odd  { background: #ffffff; }
-    .col-even { background: #bbf7d0; }  /* green-200 */
-    .th-odd   { background: #374151; color: white; font-weight: 700; }
-    .th-even  { background: #166534; color: white; font-weight: 700; }
+    .col-odd      { background: #ffffff; }
+    .col-even     { background: #bbf7d0; }
+    .th-odd       { background: #374151; color: white; font-weight: 700; }
+    .th-even      { background: #166534; color: white; font-weight: 700; }
+
+    /* ── Admin inline editing ── */
+    .editable[contenteditable="true"]:hover:not(:focus) {
+      background: #fef9c3 !important;
+      cursor: text;
+    }
+    .editable[contenteditable="true"]:focus {
+      outline: 2px dashed #dc2626;
+      background: #fff7ed !important;
+    }
+
+    /* ── Unsaved badge ── */
+    #unsaved-badge {
+      display: none;
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      background: #f59e0b; color: white;
+      padding: 5px 20px; border-radius: 99px;
+      font-weight: 700; font-size: 13px;
+      z-index: 50; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      pointer-events: none;
+    }
+
+    /* ── Save button ── */
+    #save-btn {
+      display: none;
+      position: fixed; bottom: 24px; right: 24px; z-index: 50;
+      background: #dc2626; color: white;
+      font-weight: 700; font-size: 14px;
+      padding: 12px 24px; border-radius: 14px;
+      border: 2px solid #b91c1c;
+      box-shadow: 0 4px 16px rgba(220,38,38,0.4);
+      cursor: pointer; transition: background 0.2s;
+    }
+    #save-btn:hover { background: #b91c1c; }
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -85,6 +118,12 @@
     </div>
   </div>
 
+  <!-- ── Unsaved badge ── -->
+  <div id="unsaved-badge">⚠ Unsaved changes</div>
+
+  <!-- ── Save button (admin only) ── -->
+  <button id="save-btn" onclick="saveData()">💾 Save Changes</button>
+
   <!-- ── Main ── -->
   <div class="p-6 mr-5">
     <div class="bg-white rounded-2xl shadow-2xl border-4 border-red-600 p-6">
@@ -97,18 +136,22 @@
       </div>
 
       <!-- Legend -->
-      <div class="mb-4 flex items-center gap-6 text-xs font-medium">
+      <div class="mb-4 flex flex-wrap items-center gap-6 text-xs font-medium">
         <div class="flex items-center gap-2">
           <div class="w-6 h-4 bg-white border-2 border-gray-400 rounded-sm"></div>
           <span>Data Entry</span>
         </div>
         <div class="flex items-center gap-2">
           <div class="w-6 h-4 bg-yellow-300 border-2 border-gray-400 rounded-sm"></div>
-          <span>Formula</span>
+          <span>Formula / Auto</span>
         </div>
         <div class="flex items-center gap-2">
           <div class="w-6 h-4 bg-green-200 border-2 border-gray-400 rounded-sm"></div>
           <span>Station (even)</span>
+        </div>
+        <div id="edit-hint" style="display:none"
+             class="ml-2 text-red-600 font-bold">
+          ✏ Admin — click any white cell to edit
         </div>
       </div>
 
@@ -126,11 +169,11 @@
           </thead>
           <tbody>
             <tr>
-              <td class="cell-entry font-semibold">460 min</td>
-              <td class="cell-formula">220</td>
-              <td class="cell-entry font-semibold">5,0%</td>
-              <td class="cell-formula">2,09 min</td>
-              <td class="cell-formula">#DIV/0!</td>
+              <td class="cell-entry font-semibold" id="stat-working-time">460 min</td>
+              <td class="cell-formula" id="stat-target-qty">220</td>
+              <td class="cell-entry font-semibold" id="stat-npt">5,0%</td>
+              <td class="cell-formula" id="stat-tact-time">2,09 min</td>
+              <td class="cell-formula" id="stat-avg-gum">—</td>
             </tr>
           </tbody>
         </table>
@@ -160,24 +203,22 @@
           <!-- RIGHT TABLE — stations grid -->
           <table class="tbl flex-shrink-0" id="right-table">
             <thead>
-              <!-- Row 1: station numbers -->
               <tr>
                 <th class="th-dark" rowspan="3"
                     style="writing-mode:vertical-lr; transform:rotate(180deg); padding:12px 6px;">
                   Part Number<br/>/ Carset
                 </th>
-                <th class="th-odd" colspan="2">1</th>
+                <th class="th-odd"  colspan="2">1</th>
                 <th class="th-even" colspan="2">2</th>
-                <th class="th-odd" colspan="2">3</th>
+                <th class="th-odd"  colspan="2">3</th>
                 <th class="th-even" colspan="2">4</th>
-                <th class="th-odd" colspan="2">5</th>
+                <th class="th-odd"  colspan="2">5</th>
                 <th class="th-even" colspan="2">6</th>
-                <th class="th-odd" colspan="2">7</th>
+                <th class="th-odd"  colspan="2">7</th>
                 <th class="th-even" colspan="2">8</th>
-                <th class="th-odd" colspan="2">9</th>
+                <th class="th-odd"  colspan="2">9</th>
                 <th class="th-even" colspan="2">10</th>
               </tr>
-              <!-- Row 2: station names -->
               <tr>
                 <th class="th-odd"  colspan="2">SPS1</th>
                 <th class="th-even" colspan="2">SPS2</th>
@@ -190,7 +231,6 @@
                 <th class="th-odd"  colspan="2">Wasurembo</th>
                 <th class="th-even" colspan="2">Lay 1</th>
               </tr>
-              <!-- Row 3: GUM / AWT -->
               <tr id="gum-awt-row"></tr>
             </thead>
             <tbody id="right-body"></tbody>
@@ -217,7 +257,22 @@
       { name:'Lay 1',     even:true  },
     ];
 
-    // ── Build GUM/AWT header row ──────────────────────────────
+    let hasChanges = false;
+
+    function markChanged() {
+      if (!hasChanges) {
+        hasChanges = true;
+        document.getElementById('unsaved-badge').style.display = 'block';
+      }
+    }
+
+    function makeEditable(td) {
+      td.contentEditable = 'true';
+      td.classList.add('editable');
+      td.addEventListener('input', markChanged);
+    }
+
+    // ── GUM/AWT header row ────────────────────────────────────
     function buildGumAwtRow() {
       const row = document.getElementById('gum-awt-row');
       STATIONS.forEach(s => {
@@ -231,46 +286,64 @@
       });
     }
 
-    // ── Build left table rows ─────────────────────────────────
-    function buildLeftRows() {
+    // ── Left table rows ───────────────────────────────────────
+    function buildLeftRows(admin) {
       const tbody = document.getElementById('left-body');
+      const FIELDS = [
+        { field:'no',          editable:false, cls:'cell-entry font-semibold text-gray-500', w:''      },
+        { field:'date',        editable:true,  cls:'cell-entry', w:'90px'  },
+        { field:'project',     editable:true,  cls:'cell-entry', w:'70px'  },
+        { field:'family',      editable:true,  cls:'cell-entry', w:'70px'  },
+        { field:'spec',        editable:true,  cls:'cell-entry', w:'60px'  },
+        { field:'f_number',    editable:true,  cls:'cell-entry', w:'80px'  },
+        { field:'part_number', editable:false, cls:'cell-formula', w:'120px' },
+        { field:'p3_gum',      editable:false, cls:'cell-formula', w:'80px'  },
+      ];
+
       for (let i = 1; i <= ROW_COUNT; i++) {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition-colors';
-        tr.innerHTML = `
-          <td class="cell-entry font-semibold text-gray-500">${i}</td>
-          <td class="cell-entry" style="min-width:90px;"></td>
-          <td class="cell-entry" style="min-width:70px;"></td>
-          <td class="cell-entry" style="min-width:70px;"></td>
-          <td class="cell-entry" style="min-width:60px;"></td>
-          <td class="cell-entry" style="min-width:80px;"></td>
-          <td class="cell-formula" style="min-width:120px;"></td>
-          <td class="cell-formula" style="min-width:80px;"></td>`;
+        tr.dataset.row = i;
+
+        FIELDS.forEach(f => {
+          const td = document.createElement('td');
+          td.className = f.cls;
+          if (f.w) td.style.minWidth = f.w;
+          td.dataset.field = f.field;
+          if (f.field === 'no') td.textContent = i;
+          if (admin && f.editable) makeEditable(td);
+          tr.appendChild(td);
+        });
+
         tbody.appendChild(tr);
       }
     }
 
-    // ── Build right table rows ────────────────────────────────
-    function buildRightRows() {
+    // ── Right table rows ──────────────────────────────────────
+    function buildRightRows(admin) {
       const tbody = document.getElementById('right-body');
-      for (let i = 0; i < ROW_COUNT; i++) {
+      for (let i = 1; i <= ROW_COUNT; i++) {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition-colors';
+        tr.dataset.row = i;
 
-        // Part Number/Carset label cell
+        // Part Number mirror (read-only)
         const labelTd = document.createElement('td');
         labelTd.className = 'cell-entry';
         labelTd.style.minWidth = '100px';
+        labelTd.dataset.field = 'pn_mirror';
         tr.appendChild(labelTd);
 
-        // GUM + AWT cells for each station
         STATIONS.forEach(s => {
           const cls = s.even ? 'col-even' : 'col-odd';
-          ['GUM','AWT'].forEach(() => {
+          ['gum','awt'].forEach(type => {
             const td = document.createElement('td');
             td.className = cls;
             td.style.minWidth = '55px';
             td.style.height = '28px';
+            td.dataset.station = s.name;
+            td.dataset.type = type;
+            if (admin) makeEditable(td);
             tr.appendChild(td);
           });
         });
@@ -279,15 +352,164 @@
       }
     }
 
-    buildGumAwtRow();
-    buildLeftRows();
-    buildRightRows();
+    // ── Average GUM from P3 GUM column ───────────────────────
+    function updateAvgGum() {
+      const vals = [];
+      document.querySelectorAll('#left-body [data-field="p3_gum"]').forEach(td => {
+        const v = parseFloat(td.textContent.replace(',', '.'));
+        if (!isNaN(v) && v > 0) vals.push(v);
+      });
+      document.getElementById('stat-avg-gum').textContent = vals.length
+        ? (vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(2)
+        : '—';
+    }
+
+    // ── Load from API ─────────────────────────────────────────
+    async function loadData(admin) {
+      try {
+        const res = await fetch('/api/data-collection');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Stats bar
+        document.getElementById('stat-working-time').textContent =
+          (data.working_time || '460') + ' min';
+        document.getElementById('stat-npt').textContent =
+          (data.npt || '5,0') + '%';
+
+        (data.rows || []).forEach(row => {
+          const n = row.no;
+
+          // Left table
+          const lTr = document.querySelector(`#left-body tr[data-row="${n}"]`);
+          if (lTr) {
+            ['date','project','family','spec','f_number','part_number','p3_gum']
+              .forEach(f => {
+                const td = lTr.querySelector(`[data-field="${f}"]`);
+                if (td) td.textContent = row[f] || '';
+              });
+          }
+
+          // Right table
+          const rTr = document.querySelector(`#right-body tr[data-row="${n}"]`);
+          if (rTr) {
+            const mirror = rTr.querySelector('[data-field="pn_mirror"]');
+            if (mirror) mirror.textContent = row.part_number || '';
+
+            if (row.stations) {
+              STATIONS.forEach(s => {
+                ['gum','awt'].forEach(type => {
+                  const td = rTr.querySelector(
+                    `[data-station="${s.name}"][data-type="${type}"]`
+                  );
+                  if (td) td.textContent =
+                    row.stations[s.name]?.[type] || '';
+                });
+              });
+            }
+          }
+        });
+
+        updateAvgGum();
+
+        if (admin) {
+          document.getElementById('save-btn').style.display = 'block';
+          document.getElementById('edit-hint').style.display = 'inline';
+        }
+      } catch(e) {
+        console.error('loadData:', e);
+      }
+    }
+
+    // ── Save to API ───────────────────────────────────────────
+    async function saveData() {
+      const rows = [];
+
+      for (let i = 1; i <= ROW_COUNT; i++) {
+        const lTr = document.querySelector(`#left-body tr[data-row="${i}"]`);
+        const rTr = document.querySelector(`#right-body tr[data-row="${i}"]`);
+        const row = { no: i };
+
+        if (lTr) {
+          ['date','project','family','spec','f_number','part_number','p3_gum']
+            .forEach(f => {
+              const td = lTr.querySelector(`[data-field="${f}"]`);
+              row[f] = td ? td.textContent.trim() : '';
+            });
+        }
+
+        row.stations = {};
+        if (rTr) {
+          // keep mirror in sync
+          const mirror = rTr.querySelector('[data-field="pn_mirror"]');
+          if (mirror) mirror.textContent = row.part_number || '';
+
+          STATIONS.forEach(s => {
+            row.stations[s.name] = {};
+            ['gum','awt'].forEach(type => {
+              const td = rTr.querySelector(
+                `[data-station="${s.name}"][data-type="${type}"]`
+              );
+              row.stations[s.name][type] = td ? td.textContent.trim() : '';
+            });
+          });
+        }
+
+        rows.push(row);
+      }
+
+      const wt  = document.getElementById('stat-working-time')
+                    .textContent.replace(' min','').trim();
+      const npt = document.getElementById('stat-npt')
+                    .textContent.replace('%','').trim();
+
+      try {
+        const res = await fetch('/api/data-collection/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ working_time: wt, npt, rows }),
+        });
+
+        if (res.ok) {
+          hasChanges = false;
+          document.getElementById('unsaved-badge').style.display = 'none';
+          updateAvgGum();
+          const btn = document.getElementById('save-btn');
+          btn.textContent = '✓ Saved!';
+          btn.style.background = '#16a34a';
+          btn.style.borderColor = '#15803d';
+          setTimeout(() => {
+            btn.textContent = '💾 Save Changes';
+            btn.style.background = '';
+            btn.style.borderColor = '';
+          }, 2000);
+        } else {
+          const err = await res.json().catch(() => ({}));
+          alert('Save failed: ' + (err.error || res.status));
+        }
+      } catch(e) {
+        alert('Save failed: ' + e.message);
+      }
+    }
 
     // ── Init ─────────────────────────────────────────────────
+    buildGumAwtRow();
+
     checkAuth().then(user => {
       if (!checkPermission(user, 'dataCollection')) return;
       buildSidebar('/data-collection', user);
-      document.getElementById('sidebar-user').textContent = 'Logged in as: ' + user.full_name;
+      document.getElementById('sidebar-user').textContent =
+        'Logged in as: ' + user.full_name;
+
+      const admin = user.role === 'admin';
+      buildLeftRows(admin);
+      buildRightRows(admin);
+      loadData(admin);
+
+      if (admin) {
+        makeEditable(document.getElementById('stat-working-time'));
+        makeEditable(document.getElementById('stat-npt'));
+      }
     });
   </script>
 </body>
