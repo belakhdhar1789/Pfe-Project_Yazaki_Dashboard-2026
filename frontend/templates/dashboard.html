@@ -6,6 +6,7 @@
   <title>GUM vs AWT Dashboard — Yazaki</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script src="/static/sidebar.js"></script>
   <style>
     body { font-family: 'Segoe UI', sans-serif; }
@@ -42,19 +43,9 @@
     }
 
     /* ── Gauge ── */
-    .gauge-container { display: flex; flex-direction: column; align-items: center; }
-    .gauge-legend { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 4px; }
-    .gauge-legend-item { display: flex; align-items: center; gap: 3px; font-size: 10px; }
-    .gauge-legend-dot { width: 12px; height: 12px; border-radius: 2px; }
-
-    /* ── KPI Cards ── */
-    .kpi-card {
-      background: white; border-radius: 12px; border: 2px solid #e5e7eb;
-      padding: 16px; text-align: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    .kpi-value { font-size: 28px; font-weight: 800; }
-    .kpi-label { font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 4px; }
+    .gauge-wrap { display: flex; flex-direction: column; align-items: center; }
+    .gauge-title { font-size: 11px; font-weight: 700; text-align: center; margin-bottom: 4px; color: #374151; }
+    .gauge-eval  { font-size: 11px; font-weight: 700; text-align: center; margin-top: 4px; }
 
     /* ── Scrollbar ── */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -90,80 +81,102 @@
 
     <!-- Page header -->
     <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl
-                p-5 mb-6 text-center shadow-lg">
+                p-5 mb-4 text-center shadow-lg">
       <h1 class="text-3xl font-bold">GUM vs AWT Dashboard</h1>
       <p class="text-sm mt-1 opacity-90">Tableau de Bord de Suivi de Production</p>
     </div>
 
     <!-- ── Document header ── -->
     <div class="mb-4 border-2 border-gray-400 bg-white rounded-lg overflow-hidden">
-      <div class="grid border-b border-gray-400" style="grid-template-columns: 1fr 2fr 1fr;">
+      <div class="grid" style="grid-template-columns: 1fr 2fr 1fr;">
         <div class="border-r border-gray-400 p-3">
           <div class="text-xs space-y-1">
             <div class="grid grid-cols-2 gap-1 items-center">
               <span class="font-bold">Plant</span>
-              <span class="border border-gray-300 px-1 py-0.5 bg-gray-50">Yazaki Bizerte</span>
+              <span class="border border-gray-300 px-1 py-0.5 bg-gray-50 rounded text-center">Yazaki Bizerte</span>
             </div>
             <div class="grid grid-cols-2 gap-1 items-center">
               <span class="font-bold">Project</span>
-              <span class="border border-gray-300 px-1 py-0.5 bg-gray-50">CDPO</span>
+              <span class="border border-gray-300 px-1 py-0.5 bg-gray-50 rounded text-center">CDPO</span>
             </div>
             <div class="grid grid-cols-2 gap-1 items-center">
               <span class="font-bold">Family</span>
-              <span class="border border-gray-300 px-1 py-0.5 bg-gray-50">IP</span>
+              <span class="border border-gray-300 px-1 py-0.5 bg-gray-50 rounded text-center">IP</span>
             </div>
           </div>
         </div>
         <div class="flex items-center justify-center border-r border-gray-400 py-3">
           <div class="text-center">
-            <div class="text-lg font-bold">GUM vs AWT</div>
-            <div class="text-sm text-gray-600">Line Evaluation Dashboard</div>
+            <div class="text-lg font-bold">GUM vs AWT Dashboard</div>
+            <div class="text-xs text-gray-500 mt-1" id="doc-date">—</div>
           </div>
         </div>
-        <div class="p-3">
-          <div class="text-xs space-y-1">
-            <div class="font-bold mb-1">Control N°</div>
-            <div class="grid grid-cols-3 gap-1 text-center">
-              <div class="text-xs">
-                <div class="font-semibold" id="doc-prepared">—</div>
-                <div class="text-gray-500">Prepared</div>
-              </div>
-              <div class="text-xs">
-                <div class="font-semibold" id="doc-checked">—</div>
-                <div class="text-gray-500">Checked</div>
-              </div>
-              <div class="text-xs">
-                <div class="font-semibold">—</div>
-                <div class="text-gray-500">Approved</div>
-              </div>
-            </div>
+        <div class="p-3 text-xs space-y-1">
+          <div class="font-bold">Control N°</div>
+          <div class="grid grid-cols-3 gap-1 text-center mt-1">
+            <div><div class="font-semibold" id="doc-prepared">—</div><div class="text-gray-500">Prepared</div></div>
+            <div><div class="font-semibold" id="doc-checked">—</div><div class="text-gray-500">Checked</div></div>
+            <div><div class="font-semibold">—</div><div class="text-gray-500">Approved</div></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ── KPI Cards ── -->
-    <div class="grid grid-cols-2 gap-4 mb-6 sm:grid-cols-4">
-      <div class="kpi-card">
-        <div class="kpi-value text-blue-600" id="kpi-avg-gum">—</div>
-        <div class="kpi-label">Avg GUM (min)</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value text-indigo-600" id="kpi-avg-awt">—</div>
-        <div class="kpi-label">Avg AWT (min)</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value text-yellow-500" id="kpi-tact">2.09</div>
-        <div class="kpi-label">Tact Time (min)</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value text-red-600" id="kpi-efficiency">—</div>
-        <div class="kpi-label">Line Efficiency</div>
+    <!-- ── AWT Overview — 4 static donuts (placeholder) ── -->
+    <div class="mb-4 bg-white rounded-xl border-2 border-gray-300 overflow-hidden shadow-sm">
+      <div class="bg-gray-700 text-white px-4 py-2 text-sm font-bold">AWT vs GUM Overview</div>
+      <div class="p-4 flex justify-around items-center flex-wrap gap-4">
+
+        <!-- Static donut helper — each is a simple SVG ring -->
+        <!-- P1 -->
+        <div class="flex flex-col items-center gap-1">
+          <svg viewBox="0 0 80 80" width="80" height="80">
+            <circle cx="40" cy="40" r="28" fill="none" stroke="#e5e7eb" stroke-width="14"/>
+            <circle cx="40" cy="40" r="28" fill="none" stroke="#22c55e" stroke-width="14"
+              stroke-dasharray="105 70" stroke-dashoffset="35" stroke-linecap="butt"/>
+            <text x="40" y="44" text-anchor="middle" font-size="13" font-weight="bold" fill="#111">P1</text>
+          </svg>
+          <span class="text-xs font-semibold text-gray-500">Placeholder</span>
+        </div>
+
+        <!-- P2 -->
+        <div class="flex flex-col items-center gap-1">
+          <svg viewBox="0 0 80 80" width="80" height="80">
+            <circle cx="40" cy="40" r="28" fill="none" stroke="#e5e7eb" stroke-width="14"/>
+            <circle cx="40" cy="40" r="28" fill="none" stroke="#facc15" stroke-width="14"
+              stroke-dasharray="88 88" stroke-dashoffset="35" stroke-linecap="butt"/>
+            <text x="40" y="44" text-anchor="middle" font-size="13" font-weight="bold" fill="#111">P2</text>
+          </svg>
+          <span class="text-xs font-semibold text-gray-500">Placeholder</span>
+        </div>
+
+        <!-- P3 -->
+        <div class="flex flex-col items-center gap-1">
+          <svg viewBox="0 0 80 80" width="80" height="80">
+            <circle cx="40" cy="40" r="28" fill="none" stroke="#e5e7eb" stroke-width="14"/>
+            <circle cx="40" cy="40" r="28" fill="none" stroke="#ef4444" stroke-width="14"
+              stroke-dasharray="60 116" stroke-dashoffset="35" stroke-linecap="butt"/>
+            <text x="40" y="44" text-anchor="middle" font-size="13" font-weight="bold" fill="#111">P3</text>
+          </svg>
+          <span class="text-xs font-semibold text-gray-500">Placeholder</span>
+        </div>
+
+        <!-- P4 -->
+        <div class="flex flex-col items-center gap-1">
+          <svg viewBox="0 0 80 80" width="80" height="80">
+            <circle cx="40" cy="40" r="28" fill="none" stroke="#e5e7eb" stroke-width="14"/>
+            <circle cx="40" cy="40" r="28" fill="none" stroke="#fb923c" stroke-width="14"
+              stroke-dasharray="75 100" stroke-dashoffset="35" stroke-linecap="butt"/>
+            <text x="40" y="44" text-anchor="middle" font-size="13" font-weight="bold" fill="#111">P4</text>
+          </svg>
+          <span class="text-xs font-semibold text-gray-500">Placeholder</span>
+        </div>
+
       </div>
     </div>
 
-    <!-- ── Line Evaluation: data panel + gauges ── -->
-    <div class="mb-6 bg-white rounded-xl border-2 border-gray-300 overflow-hidden shadow-sm">
+    <!-- ── GUM vs AWT Line Evaluation ── -->
+    <div class="mb-4 bg-white rounded-xl border-2 border-gray-300 overflow-hidden shadow-sm">
       <div class="bg-gray-700 text-white px-4 py-2 text-sm font-bold">
         GUM vs AWT Line Evaluation
       </div>
@@ -185,9 +198,9 @@
               <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded">460 min</span>
             </div>
             <div class="grid grid-cols-2 gap-1 items-center">
-              <span class="font-bold">Operators</span>
+              <span class="font-bold">Operators (D/I)</span>
               <div class="grid grid-cols-2 gap-1">
-                <span class="border border-gray-300 px-1 bg-gray-50 text-center rounded">44</span>
+                <span class="border border-gray-300 px-1 bg-gray-50 text-center rounded" id="panel-direct">44</span>
                 <span class="border border-gray-300 px-1 bg-gray-50 text-center rounded">3</span>
               </div>
             </div>
@@ -196,7 +209,7 @@
               <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded">3.3</span>
             </div>
             <div class="grid grid-cols-2 gap-1 items-center">
-              <span class="font-bold">Tact time (min)</span>
+              <span class="font-bold">Tact Time (min)</span>
               <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded">2.09</span>
             </div>
             <div class="grid grid-cols-2 gap-1 items-center">
@@ -208,137 +221,172 @@
               <span class="border border-gray-300 px-2 py-0.5 bg-blue-50 rounded font-semibold" id="panel-avg-awt">—</span>
             </div>
             <div class="grid grid-cols-2 gap-1 items-center">
-              <span class="font-bold">Max GUM</span>
-              <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded" id="panel-max-gum">—</span>
+              <span class="font-bold">Needed MP</span>
+              <span class="border border-gray-300 px-2 py-0.5 bg-yellow-50 rounded font-semibold" id="panel-needed-mp">—</span>
             </div>
             <div class="grid grid-cols-2 gap-1 items-center">
-              <span class="font-bold">Min GUM</span>
-              <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded" id="panel-min-gum">—</span>
+              <span class="font-bold">Actual output</span>
+              <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded">—</span>
             </div>
           </div>
 
-          <!-- Gauges -->
+          <!-- ── 3 Gauges ── -->
           <div class="grid grid-cols-3 gap-4">
 
-            <!-- Gauge 1: AWT vs GUM -->
-            <div class="gauge-container">
+            <!-- Gauge 1: MP Allocation  range 0–130% -->
+            <!-- Good: 80–110%  |  Bad: <80% or ≥110% -->
+            <div class="gauge-wrap">
+              <div class="gauge-title">MP Allocation</div>
               <svg viewBox="0 0 200 130" class="w-full" style="max-width:200px;">
-                <path d="M 20 105 A 80 80 0 0 1 59 27"  fill="none" stroke="#22c55e" stroke-width="22" stroke-linecap="butt"/>
-                <path d="M 59 27 A 80 80 0 0 1 100 15"  fill="none" stroke="#facc15" stroke-width="22" stroke-linecap="butt"/>
-                <path d="M 100 15 A 80 80 0 0 1 141 27" fill="none" stroke="#fb923c" stroke-width="22" stroke-linecap="butt"/>
-                <path d="M 141 27 A 80 80 0 0 1 180 105" fill="none" stroke="#ef4444" stroke-width="22" stroke-linecap="butt"/>
-                <line id="needle-1" x1="100" y1="105" x2="100" y2="45" stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
+                <!-- Bad zone 0→80% -->
+                <path d="M 30 105 A 70 70 0 0 1 124.6 39.5"
+                      fill="none" stroke="#ef4444" stroke-width="20" stroke-linecap="butt"/>
+                <!-- Good zone 80→110% -->
+                <path d="M 124.6 39.5 A 70 70 0 0 1 162.0 72.5"
+                      fill="none" stroke="#22c55e" stroke-width="20" stroke-linecap="butt"/>
+                <!-- Bad zone 110→130% -->
+                <path d="M 162.0 72.5 A 70 70 0 0 1 170 105"
+                      fill="none" stroke="#ef4444" stroke-width="20" stroke-linecap="butt"/>
+                <!-- Zone labels -->
+                <text x="52"  y="58"  font-size="7" fill="white" text-anchor="middle">Bad</text>
+                <text x="140" y="42"  font-size="7" fill="white" text-anchor="middle">Good</text>
+                <text x="168" y="80"  font-size="7" fill="white" text-anchor="middle">Bad</text>
+                <!-- Threshold marks -->
+                <text x="118" y="27"  font-size="7.5" fill="#374151" text-anchor="middle">80%</text>
+                <text x="168" y="62"  font-size="7.5" fill="#374151" text-anchor="middle">110%</text>
+                <!-- Needle -->
+                <line id="g1-needle" x1="100" y1="105" x2="100" y2="50"
+                      stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
                 <circle cx="100" cy="105" r="5" fill="#111"/>
-                <text id="needle-1-text" x="100" y="92" text-anchor="middle" font-size="14" font-weight="bold" fill="#dc2626">—</text>
-                <text x="100" y="120" text-anchor="middle" font-size="9">AWT vs GUM</text>
+                <!-- Value -->
+                <text id="g1-val" x="100" y="94" text-anchor="middle"
+                      font-size="14" font-weight="bold" fill="#111">—</text>
+                <text x="100" y="120" text-anchor="middle" font-size="8" fill="#6b7280">
+                  MP Rate = Actual/Needed×100
+                </text>
               </svg>
-              <div class="gauge-legend">
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-green-500"></div><span>Level 4</span></div>
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-yellow-400"></div><span>Level 3</span></div>
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-orange-400"></div><span>Level 2</span></div>
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-red-500"></div><span>Level 1</span></div>
-              </div>
-              <div class="text-xs font-bold mt-1" id="eval-1">Evaluation Level —</div>
+              <div class="gauge-eval" id="g1-eval">—</div>
             </div>
 
-            <!-- Gauge 2: Line Balance -->
-            <div class="gauge-container">
+            <!-- Gauge 2: AWT vs GUM  range 0–120% -->
+            <!-- Good: 90–100%  |  Bad: <90% or ≥100% -->
+            <div class="gauge-wrap">
+              <div class="gauge-title">AWT vs GUM</div>
               <svg viewBox="0 0 200 130" class="w-full" style="max-width:200px;">
-                <path d="M 20 105 A 80 80 0 0 1 59 27"  fill="none" stroke="#22c55e" stroke-width="22" stroke-linecap="butt"/>
-                <path d="M 59 27 A 80 80 0 0 1 100 15"  fill="none" stroke="#facc15" stroke-width="22" stroke-linecap="butt"/>
-                <path d="M 100 15 A 80 80 0 0 1 141 27" fill="none" stroke="#fb923c" stroke-width="22" stroke-linecap="butt"/>
-                <path d="M 141 27 A 80 80 0 0 1 180 105" fill="none" stroke="#ef4444" stroke-width="22" stroke-linecap="butt"/>
-                <line id="needle-2" x1="100" y1="105" x2="100" y2="45" stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
+                <!-- Bad zone 0→90% -->
+                <path d="M 30 105 A 70 70 0 0 1 149.5 55.5"
+                      fill="none" stroke="#ef4444" stroke-width="20" stroke-linecap="butt"/>
+                <!-- Good zone 90→100% -->
+                <path d="M 149.5 55.5 A 70 70 0 0 1 160.6 70"
+                      fill="none" stroke="#22c55e" stroke-width="20" stroke-linecap="butt"/>
+                <!-- Bad zone 100→120% -->
+                <path d="M 160.6 70 A 70 70 0 0 1 170 105"
+                      fill="none" stroke="#ef4444" stroke-width="20" stroke-linecap="butt"/>
+                <!-- Zone labels -->
+                <text x="70"  y="46"  font-size="7" fill="white" text-anchor="middle">Bad</text>
+                <text x="154" y="50"  font-size="7" fill="white" text-anchor="middle">Good</text>
+                <text x="168" y="82"  font-size="7" fill="white" text-anchor="middle">Bad</text>
+                <!-- Threshold marks -->
+                <text x="144" y="43"  font-size="7.5" fill="#374151" text-anchor="middle">90%</text>
+                <text x="165" y="60"  font-size="7.5" fill="#374151" text-anchor="middle">100%</text>
+                <!-- Needle -->
+                <line id="g2-needle" x1="100" y1="105" x2="100" y2="50"
+                      stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
                 <circle cx="100" cy="105" r="5" fill="#111"/>
-                <text id="needle-2-text" x="100" y="92" text-anchor="middle" font-size="14" font-weight="bold" fill="#dc2626">—</text>
-                <text x="100" y="120" text-anchor="middle" font-size="9">Line Balance</text>
+                <text id="g2-val" x="100" y="94" text-anchor="middle"
+                      font-size="14" font-weight="bold" fill="#111">—</text>
+                <text x="100" y="120" text-anchor="middle" font-size="8" fill="#6b7280">
+                  AWT/GUM × 100
+                </text>
               </svg>
-              <div class="gauge-legend">
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-green-500"></div><span>Level 4</span></div>
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-yellow-400"></div><span>Level 3</span></div>
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-orange-400"></div><span>Level 2</span></div>
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-red-500"></div><span>Level 1</span></div>
-              </div>
-              <div class="text-xs font-bold mt-1" id="eval-2">Evaluation Level —</div>
+              <div class="gauge-eval" id="g2-eval">—</div>
             </div>
 
-            <!-- Gauge 3: Line Efficiency -->
-            <div class="gauge-container">
+            <!-- Gauge 3: Line Effectiveness  range 0–30% -->
+            <!-- Good: <15%  |  Bad: ≥15% -->
+            <div class="gauge-wrap">
+              <div class="gauge-title">Line Effectiveness</div>
               <svg viewBox="0 0 200 130" class="w-full" style="max-width:200px;">
-                <path d="M 20 105 A 80 80 0 0 1 59 27"  fill="none" stroke="#22c55e" stroke-width="22" stroke-linecap="butt"/>
-                <path d="M 59 27 A 80 80 0 0 1 100 15"  fill="none" stroke="#facc15" stroke-width="22" stroke-linecap="butt"/>
-                <path d="M 100 15 A 80 80 0 0 1 141 27" fill="none" stroke="#fb923c" stroke-width="22" stroke-linecap="butt"/>
-                <path d="M 141 27 A 80 80 0 0 1 180 105" fill="none" stroke="#ef4444" stroke-width="22" stroke-linecap="butt"/>
-                <line id="needle-3" x1="100" y1="105" x2="100" y2="45" stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
+                <!-- Good zone 0→15% -->
+                <path d="M 30 105 A 70 70 0 0 1 100 35"
+                      fill="none" stroke="#22c55e" stroke-width="20" stroke-linecap="butt"/>
+                <!-- Bad zone 15→30% -->
+                <path d="M 100 35 A 70 70 0 0 1 170 105"
+                      fill="none" stroke="#ef4444" stroke-width="20" stroke-linecap="butt"/>
+                <!-- Zone labels -->
+                <text x="52"  y="56"  font-size="7" fill="white" text-anchor="middle">Good</text>
+                <text x="148" y="56"  font-size="7" fill="white" text-anchor="middle">Bad</text>
+                <!-- Threshold mark -->
+                <text x="100" y="23"  font-size="7.5" fill="#374151" text-anchor="middle">15%</text>
+                <!-- Needle -->
+                <line id="g3-needle" x1="100" y1="105" x2="100" y2="50"
+                      stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
                 <circle cx="100" cy="105" r="5" fill="#111"/>
-                <text id="needle-3-text" x="100" y="92" text-anchor="middle" font-size="14" font-weight="bold" fill="#dc2626">—</text>
-                <text x="100" y="120" text-anchor="middle" font-size="9">Line Efficiency</text>
+                <text id="g3-val" x="100" y="94" text-anchor="middle"
+                      font-size="14" font-weight="bold" fill="#111">—</text>
+                <text x="100" y="120" text-anchor="middle" font-size="8" fill="#6b7280">
+                  |CT−CV| / (N×CV) × 100
+                </text>
               </svg>
-              <div class="gauge-legend">
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-green-500"></div><span>Level 4</span></div>
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-yellow-400"></div><span>Level 3</span></div>
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-orange-400"></div><span>Level 2</span></div>
-                <div class="gauge-legend-item"><div class="gauge-legend-dot bg-red-500"></div><span>Level 1</span></div>
-              </div>
-              <div class="text-xs font-bold mt-1" id="eval-3">Evaluation Level —</div>
+              <div class="gauge-eval" id="g3-eval">—</div>
             </div>
 
-          </div><!-- end gauges grid -->
-        </div><!-- end data + gauges grid -->
+          </div><!-- end gauges -->
+        </div><!-- end grid -->
       </div>
     </div>
 
-    <!-- ── Breakdown Chart ── -->
-    <div class="mb-6 bg-white rounded-xl border-2 border-gray-300 overflow-hidden shadow-sm">
+    <!-- ── GUM vs AWT Breakdown ── -->
+    <div class="mb-4 bg-white rounded-xl border-2 border-gray-300 overflow-hidden shadow-sm">
       <div class="bg-gray-700 text-white px-4 py-2 text-sm font-bold">
         GUM vs AWT Breakdown — All Stations
       </div>
       <div class="p-4">
-        <div style="height:320px;">
+        <div style="height:340px;">
           <canvas id="breakdownChart"></canvas>
         </div>
 
-        <!-- Stats below chart -->
-        <div class="grid grid-cols-2 gap-8 mt-4 text-xs">
+        <!-- Stats below chart — matches handbook layout -->
+        <div class="grid grid-cols-2 gap-8 mt-4 text-xs border-t pt-3">
           <div>
-            <div class="font-bold text-sm mb-2 underline">GUM</div>
+            <div class="font-bold text-sm mb-2">GUM</div>
             <div class="space-y-1">
               <div class="grid grid-cols-2 gap-2 items-center">
-                <span>Avg GUM</span>
-                <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded" id="stat-avg-gum">—</span>
+                <span>Σ GUM</span>
+                <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded font-semibold" id="stat-sum-gum">—</span>
               </div>
               <div class="grid grid-cols-2 gap-2 items-center">
-                <span>Max GUM</span>
+                <span>Fluctuation avg GUM</span>
+                <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded" id="stat-fluct-gum">—</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 items-center">
+                <span>Max GUM / WS</span>
                 <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded" id="stat-max-gum">—</span>
               </div>
               <div class="grid grid-cols-2 gap-2 items-center">
-                <span>Min GUM</span>
+                <span>Min GUM / WS</span>
                 <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded" id="stat-min-gum">—</span>
-              </div>
-              <div class="grid grid-cols-2 gap-2 items-center">
-                <span>Fluctuation Avg</span>
-                <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded" id="stat-fluct-gum">—</span>
               </div>
             </div>
           </div>
           <div>
-            <div class="font-bold text-sm mb-2 underline text-blue-700">AWT</div>
+            <div class="font-bold text-sm mb-2 text-blue-700">AWT</div>
             <div class="space-y-1">
               <div class="grid grid-cols-2 gap-2 items-center">
-                <span>Avg AWT</span>
-                <span class="border border-gray-300 px-2 py-0.5 bg-blue-50 rounded" id="stat-avg-awt">—</span>
+                <span>Σ AWT</span>
+                <span class="border border-gray-300 px-2 py-0.5 bg-blue-50 rounded font-semibold" id="stat-sum-awt">—</span>
               </div>
               <div class="grid grid-cols-2 gap-2 items-center">
-                <span>Max AWT</span>
+                <span>Fluctuation avg AWT</span>
+                <span class="border border-gray-300 px-2 py-0.5 bg-blue-50 rounded" id="stat-fluct-awt">—</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 items-center">
+                <span>Max AWT / WS</span>
                 <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded" id="stat-max-awt">—</span>
               </div>
               <div class="grid grid-cols-2 gap-2 items-center">
-                <span>Min AWT</span>
+                <span>Min AWT / WS</span>
                 <span class="border border-gray-300 px-2 py-0.5 bg-gray-50 rounded" id="stat-min-awt">—</span>
-              </div>
-              <div class="grid grid-cols-2 gap-2 items-center">
-                <span>Fluctuation Avg</span>
-                <span class="border border-gray-300 px-2 py-0.5 bg-blue-50 rounded" id="stat-fluct-awt">—</span>
               </div>
             </div>
           </div>
@@ -348,14 +396,12 @@
 
     <!-- ── Bottleneck Priorities ── -->
     <div class="mb-6 bg-white rounded-xl border-2 border-gray-300 overflow-hidden shadow-sm">
-      <div class="bg-gray-700 text-white px-4 py-2 text-sm font-bold">
-        BOTTLENECK PRIORITIES
-      </div>
+      <div class="bg-gray-700 text-white px-4 py-2 text-sm font-bold">BOTTLENECK PRIORITIES</div>
       <div class="overflow-x-auto">
         <table class="w-full text-xs border-collapse">
           <thead>
             <tr class="bg-gray-200">
-              <th class="border border-gray-400 px-3 py-2 text-left">Workstation</th>
+              <th class="border border-gray-400 px-3 py-2 text-left">Work Station</th>
               <th class="border border-gray-400 px-3 py-2 text-left">Issue Description</th>
               <th class="border border-gray-400 px-3 py-2 text-left">Action</th>
               <th class="border border-gray-400 px-3 py-2 text-left">Owner</th>
@@ -371,41 +417,56 @@
   </div><!-- end main -->
 
   <script>
-    // ── Helpers ──────────────────────────────────────────────
-    const avg = arr => arr.length
-      ? (arr.reduce((a,b) => a + parseFloat(b||0), 0) / arr.length)
-      : 0;
+    Chart.register(ChartDataLabels);
 
-    const rowValues = (rows, label) => {
+    // ── Helpers ──────────────────────────────────────────────
+    const sum  = arr => arr.reduce((a,b) => a + b, 0);
+    const mean = arr => arr.length ? sum(arr) / arr.length : 0;
+
+    function rowValues(rows, label) {
       const r = rows.find(r => r.label === label);
-      return r ? r.values.map(v => parseFloat(v) || 0) : [];
-    };
+      if (!r) return [];
+      return r.values.map(v => parseFloat((v+'').replace('%','')) || 0);
+    }
+
+    const nonZero = arr => arr.filter(v => v > 0);
 
     // ── Gauge needle ─────────────────────────────────────────
-    // Gauge arc: left (180°) → top (270°) → right (360°) in SVG coords
-    function setNeedle(id, pct) {
-      pct = Math.max(0, Math.min(1, pct));
+    // arc: 180° → 360° mapping value 0..maxVal
+    function setNeedle(id, value, maxVal) {
+      const pct = Math.max(0, Math.min(value, maxVal)) / maxVal;
       const angle = (180 + pct * 180) * Math.PI / 180;
-      const r = 60;
-      const cx = 100, cy = 105;
-      const x2 = +(cx + r * Math.cos(angle)).toFixed(1);
-      const y2 = +(cy + r * Math.sin(angle)).toFixed(1);
-      document.getElementById('needle-' + id)
-        .setAttribute('x2', x2);
-      document.getElementById('needle-' + id)
-        .setAttribute('y2', y2);
-      const pctText = Math.round(pct * 100) + '%';
-      document.getElementById('needle-' + id + '-text').textContent = pctText;
+      const x2 = +(100 + 55 * Math.cos(angle)).toFixed(1);
+      const y2 = +(105 + 55 * Math.sin(angle)).toFixed(1);
+      document.getElementById('g' + id + '-needle').setAttribute('x2', x2);
+      document.getElementById('g' + id + '-needle').setAttribute('y2', y2);
+      document.getElementById('g' + id + '-val').textContent =
+        value.toFixed(1) + '%';
     }
 
-    function evalLevel(pct) {
-      if (pct >= 0.85) return 'Level 4 ✅';
-      if (pct >= 0.70) return 'Level 3';
-      if (pct >= 0.50) return 'Level 2';
-      return 'Level 1 ⚠';
+    // ── Evaluation text ───────────────────────────────────────
+    function evalMP(pct) {
+      if (pct < 80)  return { text: '⚠ BAD — Understaffed',  color: '#dc2626' };
+      if (pct < 110) return { text: '✅ GOOD',                 color: '#16a34a' };
+      return               { text: '⚠ BAD — Overstaffed',    color: '#dc2626' };
+    }
+    function evalAWT(pct) {
+      if (pct < 90)  return { text: '⚠ BAD — AWT < GUM',     color: '#dc2626' };
+      if (pct < 100) return { text: '✅ GOOD',                 color: '#16a34a' };
+      return               { text: '⚠ BAD — AWT ≥ GUM',      color: '#dc2626' };
+    }
+    function evalLE(pct) {
+      if (pct < 15)  return { text: '✅ GOOD',                 color: '#16a34a' };
+      return               { text: '⚠ BAD — Reduce CT gap',   color: '#dc2626' };
     }
 
-    // ── Build bottleneck table ────────────────────────────────
+    function applyEval(elId, evalObj) {
+      const el = document.getElementById(elId);
+      el.textContent = evalObj.text;
+      el.style.color  = evalObj.color;
+    }
+
+    // ── Bottleneck table ──────────────────────────────────────
     function buildBottleneck() {
       const tbody = document.getElementById('bottleneck-body');
       for (let i = 0; i < 8; i++) {
@@ -420,7 +481,7 @@
       }
     }
 
-    // ── Load data & render ────────────────────────────────────
+    // ── Main load ─────────────────────────────────────────────
     let chartInstance = null;
 
     async function loadDashboard() {
@@ -428,91 +489,165 @@
         const res = await fetch('/api/table');
         if (!res.ok) return;
         const data = await res.json();
-        const rows = data.rows || [];
-        const stations = (data.columns || []).map((_, i) => i + 1);
+        const rows    = data.rows    || [];
+        const columns = data.columns || [];
+        const labels  = columns; // station names e.g. "WS 1"
 
-        // Extract series
+        // ── Extract data series ──
         const avgGUM   = rowValues(rows, 'Average GUM');
         const avgAWT   = rowValues(rows, 'Average AWT');
-        const minGUM   = rowValues(rows, 'Min GUM');
-        const maxGUM   = rowValues(rows, 'Max GUM');
         const minAWT   = rowValues(rows, 'Min AWT');
         const maxAWT   = rowValues(rows, 'Max AWT');
+        const minGUM   = rowValues(rows, 'Min GUM');
+        const maxGUM   = rowValues(rows, 'Max GUM');
         const tactTime = rowValues(rows, 'Tact time');
         const actCycle = rowValues(rows, 'Actual Cycle Time Measured');
-        const fluctGUM = rowValues(rows, 'Fluctuation (Max-Min) GUM');
-        const fluctAWT = rowValues(rows, 'Fluctuation (Max-Min) AWT');
         const conv     = rowValues(rows, 'Convergence');
+        const fluctGUM = rowValues(rows, 'Fluctuation Rate GUM');
+        const fluctAWT = rowValues(rows, 'Fluctuation Rate AWT');
 
-        // Computed averages (filter zeros)
-        const nonZero = arr => arr.filter(v => v > 0);
-        const mAvgGUM  = avg(nonZero(avgGUM)).toFixed(2);
-        const mAvgAWT  = avg(nonZero(avgAWT)).toFixed(2);
-        const mMaxGUM  = Math.max(...nonZero(maxGUM)).toFixed(2);
-        const mMinGUM  = Math.min(...nonZero(minGUM)).toFixed(2);
-        const mMaxAWT  = Math.max(...nonZero(maxAWT)).toFixed(2);
-        const mMinAWT  = Math.min(...nonZero(minAWT)).toFixed(2);
-        const mFluctG  = avg(nonZero(fluctGUM)).toFixed(3);
-        const mFluctA  = avg(nonZero(fluctAWT)).toFixed(3);
-        const tact     = 2.09;
+        // ── KPI computations ──
+        const nzGUM = nonZero(avgGUM);
+        const nzAWT = nonZero(avgAWT);
+        const mAvgGUM = mean(nzGUM);
+        const mAvgAWT = mean(nzAWT);
+        const mMaxGUM = Math.max(...nonZero(maxGUM));
+        const mMinGUM = Math.min(...nonZero(minGUM));
+        const mMaxAWT = Math.max(...nonZero(maxAWT));
+        const mMinAWT = Math.min(...nonZero(minAWT));
+        const sumGUM  = sum(nzGUM);
+        const sumAWT  = sum(nzAWT);
+        // Fluctuation avg (non-zero)
+        const nzFluctG = nonZero(fluctGUM);
+        const nzFluctA = nonZero(fluctAWT);
+        const mFluctG  = nzFluctG.length ? mean(nzFluctG).toFixed(1)+'%' : '0%';
+        const mFluctA  = nzFluctA.length ? mean(nzFluctA).toFixed(1)+'%' : '0%';
 
-        // ── KPI Cards ──
-        document.getElementById('kpi-avg-gum').textContent   = mAvgGUM;
-        document.getElementById('kpi-avg-awt').textContent   = mAvgAWT;
-        const effPct = Math.round((tact / parseFloat(mAvgGUM)) * 100);
-        document.getElementById('kpi-efficiency').textContent = effPct + '%';
+        const TACT = 2.09;
+        const N_OPS = 44;
 
-        // ── Panel + stats ──
-        document.getElementById('panel-avg-gum').textContent = mAvgGUM;
-        document.getElementById('panel-avg-awt').textContent = mAvgAWT;
-        document.getElementById('panel-max-gum').textContent = mMaxGUM;
-        document.getElementById('panel-min-gum').textContent = mMinGUM;
+        // Gauge 1 — MP Allocation
+        // Needed MP = avgAWT / TT,  MP Rate = (N_OPS / Needed_MP) * 100
+        const neededMP = mAvgAWT / TACT;
+        const mpRate   = neededMP > 0 ? (N_OPS / neededMP) * 100 : 0;
 
-        document.getElementById('stat-avg-gum').textContent  = mAvgGUM;
-        document.getElementById('stat-max-gum').textContent  = mMaxGUM;
-        document.getElementById('stat-min-gum').textContent  = mMinGUM;
-        document.getElementById('stat-fluct-gum').textContent= mFluctG;
-        document.getElementById('stat-avg-awt').textContent  = mAvgAWT;
-        document.getElementById('stat-max-awt').textContent  = mMaxAWT;
-        document.getElementById('stat-min-awt').textContent  = mMinAWT;
-        document.getElementById('stat-fluct-awt').textContent= mFluctA;
+        // Gauge 2 — AWT vs GUM
+        const awtGumRate = mAvgGUM > 0 ? (mAvgAWT / mAvgGUM) * 100 : 0;
+
+        // Gauge 3 — Line Effectiveness
+        // LE = |CT - CV_speed| / (N_OPS * CV_speed) * 100
+        const mCT   = mean(nonZero(actCycle));
+        const mCV   = mean(nonZero(conv));
+        const le    = mCV > 0 ? (Math.abs(mCT - mCV) / (N_OPS * mCV)) * 100 : 0;
+
+        // ── Update panel ──
+        document.getElementById('panel-avg-gum').textContent  = mAvgGUM.toFixed(2);
+        document.getElementById('panel-avg-awt').textContent  = mAvgAWT.toFixed(2);
+        document.getElementById('panel-needed-mp').textContent = neededMP.toFixed(1);
+
+        // ── Update stats ──
+        document.getElementById('stat-sum-gum').textContent  = sumGUM.toFixed(2);
+        document.getElementById('stat-sum-awt').textContent  = sumAWT.toFixed(2);
+        document.getElementById('stat-fluct-gum').textContent = mFluctG;
+        document.getElementById('stat-fluct-awt').textContent = mFluctA;
+        document.getElementById('stat-max-gum').textContent  = mMaxGUM.toFixed(2);
+        document.getElementById('stat-min-gum').textContent  = mMinGUM.toFixed(2);
+        document.getElementById('stat-max-awt').textContent  = mMaxAWT.toFixed(2);
+        document.getElementById('stat-min-awt').textContent  = mMinAWT.toFixed(2);
 
         // ── Gauges ──
-        const awtVsGum  = parseFloat(mAvgAWT) / parseFloat(mAvgGUM);
-        const lineBalance = parseFloat(mMinGUM) / parseFloat(mMaxGUM);
-        const lineEff   = tact / parseFloat(mAvgGUM);
-
-        setNeedle(1, awtVsGum);
-        setNeedle(2, lineBalance);
-        setNeedle(3, lineEff);
-
-        document.getElementById('eval-1').textContent = 'Evaluation: ' + evalLevel(awtVsGum);
-        document.getElementById('eval-2').textContent = 'Evaluation: ' + evalLevel(lineBalance);
-        document.getElementById('eval-3').textContent = 'Evaluation: ' + evalLevel(lineEff);
+        setNeedle(1, mpRate,      130);
+        setNeedle(2, awtGumRate,  120);
+        setNeedle(3, le,           30);
+        applyEval('g1-eval', evalMP(mpRate));
+        applyEval('g2-eval', evalAWT(awtGumRate));
+        applyEval('g3-eval', evalLE(le));
 
         // ── Chart ──
         if (chartInstance) chartInstance.destroy();
         const ctx = document.getElementById('breakdownChart').getContext('2d');
+
         chartInstance = new Chart(ctx, {
           data: {
-            labels: stations,
+            labels,
             datasets: [
-              { type:'bar',  label:'Average GUM',          data: avgGUM,   backgroundColor:'rgba(96,165,250,0.8)',  order:2 },
-              { type:'bar',  label:'Average AWT',          data: avgAWT,   backgroundColor:'rgba(147,197,253,0.8)', order:2 },
-              { type:'line', label:'Tact Time',            data: tactTime, borderColor:'#fbbf24', borderWidth:2, pointRadius:0, fill:false, tension:0, order:1 },
-              { type:'line', label:'Convergence',          data: conv,     borderColor:'#22c55e', borderWidth:2, pointRadius:0, fill:false, tension:0, order:1 },
-              { type:'line', label:'Actual Cycle Time',    data: actCycle, borderColor:'#ef4444', borderWidth:2, pointRadius:3, fill:false, tension:0.3, order:1 },
-              { type:'line', label:'Min AWT',              data: minAWT,   borderColor:'#8b5cf6', borderWidth:1, pointRadius:0, fill:false, tension:0, order:1 },
-              { type:'line', label:'Max AWT',              data: maxAWT,   borderColor:'#ec4899', borderWidth:1, pointRadius:0, fill:false, tension:0, order:1 },
-              { type:'line', label:'Fluctuation AWT',      data: fluctAWT, borderColor:'#14b8a6', borderWidth:1, pointRadius:0, fill:false, tension:0, order:1 },
+              {
+                type: 'bar', label: 'Average GUM',
+                data: avgGUM, backgroundColor: 'rgba(100,149,237,0.85)',
+                order: 2, datalabels: { display: false }
+              },
+              {
+                type: 'bar', label: 'Average AWT',
+                data: avgAWT, backgroundColor: 'rgba(173,216,230,0.85)',
+                order: 2, datalabels: { display: false }
+              },
+              {
+                type: 'line', label: 'Tact Time',
+                data: tactTime, borderColor: '#fbbf24', borderWidth: 2,
+                borderDash: [6,3], pointRadius: 0, fill: false, tension: 0,
+                order: 1, datalabels: { display: false }
+              },
+              {
+                type: 'line', label: 'Conveyor Speed',
+                data: conv, borderColor: '#22c55e', borderWidth: 2,
+                borderDash: [4,4], pointRadius: 0, fill: false, tension: 0,
+                order: 1, datalabels: { display: false }
+              },
+              {
+                type: 'line', label: 'Actual Cycle Time',
+                data: actCycle, borderColor: '#16a34a', borderWidth: 2,
+                pointRadius: 4, pointBackgroundColor: '#16a34a',
+                fill: false, tension: 0.3,
+                order: 1, datalabels: { display: false }
+              },
+              {
+                type: 'line', label: 'Min AWT',
+                data: minAWT, borderColor: '#93c5fd', borderWidth: 1,
+                pointRadius: 3, pointBackgroundColor: '#93c5fd',
+                fill: false, tension: 0,
+                order: 1, datalabels: { display: false }
+              },
+              {
+                type: 'line', label: 'Max AWT',
+                data: maxAWT, borderColor: '#ef4444', borderWidth: 1,
+                pointRadius: 3, pointBackgroundColor: '#ef4444',
+                fill: false, tension: 0,
+                order: 1, datalabels: { display: false }
+              },
+              {
+                // Fluctuation Rate AWT — secondary axis + % labels on dots
+                type: 'line', label: 'Fluctuation Rate AWT',
+                data: fluctAWT, borderColor: '#111', borderWidth: 1,
+                pointRadius: 5, pointBackgroundColor: '#111',
+                fill: false, tension: 0,
+                yAxisID: 'y2', order: 0,
+                datalabels: {
+                  display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+                  formatter: v => v.toFixed(0) + '%',
+                  anchor: 'end', align: 'top',
+                  font: { size: 9, weight: 'bold' },
+                  color: '#111'
+                }
+              },
             ]
           },
           options: {
-            responsive: true, maintainAspectRatio: false, animation: false,
-            plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 12 } } },
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+              legend: { labels: { font: { size: 10 }, boxWidth: 12 } },
+              datalabels: { display: false } // default off; per-dataset overrides above
+            },
             scales: {
-              x: { ticks: { font: { size: 10 } } },
-              y: { ticks: { font: { size: 10 } } }
+              x:  { ticks: { font: { size: 9 }, maxRotation: 45 } },
+              y:  { ticks: { font: { size: 10 } }, title: { display: true, text: 'Time (min)', font: { size: 10 } } },
+              y2: {
+                position: 'right', grid: { drawOnChartArea: false },
+                ticks: { font: { size: 9 }, callback: v => v + '%' },
+                title: { display: true, text: 'Fluctuation %', font: { size: 9 } },
+                min: 0
+              }
             }
           }
         });
@@ -524,12 +659,13 @@
 
     // ── Doc dates ──
     const today = new Date().toLocaleDateString('fr-FR');
-    document.getElementById('doc-prepared').textContent = today;
-    document.getElementById('doc-checked').textContent  = today;
+    document.getElementById('doc-date').textContent      = today;
+    document.getElementById('doc-prepared').textContent  = today;
+    document.getElementById('doc-checked').textContent   = today;
 
-    // ── Init ─────────────────────────────────────────────────
     buildBottleneck();
 
+    // ── Init ─────────────────────────────────────────────────
     checkAuth().then(user => {
       if (!checkPermission(user, 'dashboard')) return;
       buildSidebar('/dashboard', user);
