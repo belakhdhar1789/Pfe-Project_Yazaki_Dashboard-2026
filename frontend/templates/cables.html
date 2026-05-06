@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cable Plot Monitor — Yazaki</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; }
+
+    /* ── Right Navigation Sidebar ── */
+    #sidebar-panel {
+      position: fixed; top: 0; right: 0; width: 320px; height: 100vh;
+      background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+      border-left: 4px solid #dc2626;
+      transform: translateX(100%); transition: transform 0.3s ease;
+      z-index: 40; display: flex; flex-direction: column; overflow-y: auto;
+    }
+    #sidebar-trigger {
+      position: fixed; top: 0; right: 0; width: 16px; height: 100vh;
+      z-index: 30; cursor: pointer;
+    }
+    #sidebar-panel.open { transform: translateX(0); }
+    .sidebar-btn {
+      display: block; width: 100%;
+      border: 2px solid #d1d5db; border-radius: 12px;
+      padding: 14px 16px; text-align: center;
+      font-weight: 700; font-size: 14px; color: #1f2937;
+      background: white; text-decoration: none;
+      transition: all 0.2s ease; margin-bottom: 10px;
+    }
+    .sidebar-btn:hover  { border-color: #dc2626; color: #dc2626; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .sidebar-btn.active { background: linear-gradient(to right, #dc2626, #b91c1c); color: white; border-color: #111; }
+
+    /* ── Row status colours ── */
+    .row-ok       { background: #f0fdf4; }
+    .row-wrong    { background: #fef2f2; }
+    .row-low      { background: #fefce8; }
+    .row-empty    { background: #fff1f2; border-left: 4px solid #dc2626 !important; }
+    .row-refilled { background: #eff6ff; }
+    .row-no-expected { background: #f9fafb; }
+
+    /* ── Alert badges ── */
+    .badge { padding: 3px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .badge-ok        { background: #16a34a; color: #fff; }
+    .badge-wrong     { background: #dc2626; color: #fff; }
+    .badge-low       { background: #ca8a04; color: #fff; }
+    .badge-empty     { background: #dc2626; color: #fff; animation: blink 1s infinite; }
+    .badge-refilled  { background: #2563eb; color: #fff; }
+    .badge-no-config { background: #6b7280; color: #fff; }
+
+    @keyframes blink { 0%,100%{ opacity:1; } 50%{ opacity:0.4; } }
+
+    /* ── Editable cell ── */
+    .editable-cell {
+      border: 1px dashed #d1d5db; border-radius: 6px;
+      padding: 3px 8px; min-width: 90px; display: inline-block;
+      cursor: text; transition: border-color 0.2s;
+    }
+    .editable-cell:focus { outline: none; border-color: #dc2626; background: #fff; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+
+  <div id="sidebar-trigger" onmouseenter="openSidebar()"></div>
+
+  <!-- ── Right Navigation Sidebar ── -->
+  <div id="sidebar-panel" onmouseleave="closeSidebar()">
+    <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-4 m-4 shadow-lg text-center">
+      <h2 class="text-xl font-bold">Navigation Menu</h2>
+      <p class="text-xs mt-1 opacity-90">Dashboard de Suivi</p>
+    </div>
+    <div class="flex-1 overflow-y-auto px-4" id="sidebar-menu"></div>
+    <div class="p-4 border-t-2 border-gray-300 text-center">
+      <div id="sidebar-user" class="text-xs text-gray-600 font-semibold mb-2"></div>
+      <p class="text-xs text-gray-500 mb-3">YAZAKI Manufacturing Dashboard</p>
+      <button onclick="handleLogout()"
+        class="w-full border-2 rounded-xl p-3 text-center font-bold text-sm
+               bg-red-600 text-white border-red-600 hover:bg-red-700 transition-colors">
+        Sign Out
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Main ── -->
+  <div class="p-4 mr-5">
+
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-xl p-5 mb-4 shadow-lg flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">📦 Cable Plot Monitor</h1>
+        <p class="text-sm mt-1 opacity-90">Real-time cable verification & IR status</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="last-refresh" class="text-xs opacity-70"></span>
+        <button id="scan-btn" onclick="openScanModal()"
+          class="hidden bg-white text-red-700 font-bold px-4 py-2 rounded-xl hover:bg-gray-100 transition-colors text-sm shadow">
+          📷 Scan Cable
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div class="bg-white rounded-xl border-2 border-gray-200 p-4 text-center shadow-sm">
+        <div class="text-3xl font-bold text-gray-800" id="stat-total">—</div>
+        <div class="text-xs font-semibold text-gray-500 mt-1">Total Plots</div>
+      </div>
+      <div class="bg-green-50 rounded-xl border-2 border-green-200 p-4 text-center shadow-sm">
+        <div class="text-3xl font-bold text-green-700" id="stat-ok">—</div>
+        <div class="text-xs font-semibold text-green-600 mt-1">✅ OK</div>
+      </div>
+      <div class="bg-yellow-50 rounded-xl border-2 border-yellow-200 p-4 text-center shadow-sm">
+        <div class="text-3xl font-bold text-yellow-700" id="stat-warning">—</div>
+        <div class="text-xs font-semibold text-yellow-600 mt-1">⚠ Warning</div>
+      </div>
+      <div class="bg-red-50 rounded-xl border-2 border-red-300 p-4 text-center shadow-sm">
+        <div class="text-3xl font-bold text-red-700" id="stat-empty">—</div>
+        <div class="text-xs font-semibold text-red-600 mt-1">🚨 Empty / Wrong</div>
+      </div>
+    </div>
+
+    <!-- Plots table -->
+    <div class="bg-white rounded-2xl shadow-lg border-2 border-gray-200 mb-4 overflow-hidden">
+      <div class="bg-gray-800 text-white px-5 py-3 flex justify-between items-center">
+        <span class="font-bold text-sm">📋 Plot Status — All Workstations</span>
+        <span class="text-xs opacity-70">Auto-refresh every 5s</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs border-collapse" id="plots-table">
+          <thead>
+            <tr class="bg-gray-100 text-gray-700">
+              <th class="border border-gray-300 px-3 py-2 text-left font-bold">Plot #</th>
+              <th class="border border-gray-300 px-3 py-2 text-left font-bold">Line</th>
+              <th class="border border-gray-300 px-3 py-2 text-left font-bold">Workstation</th>
+              <th class="border border-gray-300 px-3 py-2 text-left font-bold">Expected Type</th>
+              <th class="border border-gray-300 px-3 py-2 text-left font-bold">Scanned Type</th>
+              <th class="border border-gray-300 px-3 py-2 text-center font-bold">IR Status</th>
+              <th class="border border-gray-300 px-3 py-2 text-center font-bold">Cable Match</th>
+              <th class="border border-gray-300 px-3 py-2 text-center font-bold">Last Scan</th>
+              <th class="border border-gray-300 px-3 py-2 text-center font-bold">Alert</th>
+              <th id="th-ir-test" class="border border-gray-300 px-3 py-2 text-center font-bold hidden">IR Test</th>
+            </tr>
+          </thead>
+          <tbody id="plots-tbody">
+            <tr><td colspan="10" class="text-center py-8 text-gray-400">Loading plots…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent scan log -->
+    <div class="bg-white rounded-2xl shadow-lg border-2 border-gray-200 overflow-hidden">
+      <div class="bg-gray-800 text-white px-5 py-3">
+        <span class="font-bold text-sm">🔍 Recent Scan Log</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs border-collapse">
+          <thead>
+            <tr class="bg-gray-100 text-gray-700">
+              <th class="border border-gray-300 px-3 py-2 text-left font-bold">Time</th>
+              <th class="border border-gray-300 px-3 py-2 text-left font-bold">Workstation</th>
+              <th class="border border-gray-300 px-3 py-2 text-left font-bold">Plot</th>
+              <th class="border border-gray-300 px-3 py-2 text-left font-bold">Scanned Type</th>
+              <th class="border border-gray-300 px-3 py-2 text-center font-bold">Source</th>
+              <th class="border border-gray-300 px-3 py-2 text-center font-bold">Result</th>
+            </tr>
+          </thead>
+          <tbody id="log-tbody">
+            <tr><td colspan="6" class="text-center py-6 text-gray-400">No scans yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- end main -->
+
+  <!-- ── Camera Scan Modal ── -->
+  <div id="scan-modal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+      <div class="bg-gradient-to-r from-red-600 to-black text-white rounded-t-2xl px-5 py-4 flex justify-between items-center">
+        <h2 class="text-lg font-bold">📷 Scan Cable Barcode</h2>
+        <button onclick="closeScanModal()" class="text-white hover:text-gray-200 text-2xl font-bold leading-none">&times;</button>
+      </div>
+      <div class="p-5 space-y-4">
+        <!-- Plot selector -->
+        <div>
+          <label class="text-sm font-bold text-gray-700 block mb-1">Select Plot to verify:</label>
+          <select id="scan-plot-sel"
+            class="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-red-600 focus:outline-none">
+            <option value="">Loading plots…</option>
+          </select>
+        </div>
+        <!-- Camera feed -->
+        <div class="relative bg-black rounded-lg overflow-hidden" style="height:220px;">
+          <video id="scan-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+          <canvas id="scan-canvas" class="hidden"></canvas>
+          <!-- Aiming frame -->
+          <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div class="border-2 border-red-400 rounded-lg opacity-70"
+                 style="width:200px;height:110px;box-shadow:0 0 0 9999px rgba(0,0,0,0.35);"></div>
+          </div>
+        </div>
+        <!-- Status text -->
+        <div id="scan-status" class="text-center text-sm font-semibold text-gray-500 py-1">
+          📷 Point camera at cable barcode…
+        </div>
+        <!-- Result card -->
+        <div id="scan-result-card" class="hidden rounded-xl p-3 text-center border-2">
+          <div class="text-xs text-gray-500 mb-1">Detected cable type</div>
+          <div id="scan-result-type" class="text-xl font-bold mb-1 text-gray-900"></div>
+          <div id="scan-result-msg"  class="text-sm font-semibold"></div>
+        </div>
+        <!-- Buttons -->
+        <div class="flex gap-3">
+          <button id="scan-confirm-btn" onclick="confirmScan()"
+            class="hidden flex-1 bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition-colors">
+            ✓ Confirm &amp; Send
+          </button>
+          <button id="scan-retry-btn" onclick="retryMScan()"
+            class="hidden flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors">
+            ↺ Retry
+          </button>
+          <button onclick="closeScanModal()"
+            class="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/sidebar.js"></script>
+  <script>
+    let isAdmin   = false;
+    let allPlots  = [];
+    let refreshId = null;
+
+    // ── Scan modal state ─────────────────────────────────────────
+    let scanStream   = null;
+    let scanInterval = null;
+    let scannedCode  = null;
+
+    // ── Load plots ───────────────────────────────────────────────
+    async function loadPlots() {
+      try {
+        const res = await fetch('/api/cables/plots');
+        if (!res.ok) return;
+        allPlots = await res.json();
+        renderPlots(allPlots);
+        updateStats(allPlots);
+        document.getElementById('last-refresh').textContent =
+          'Updated ' + new Date().toLocaleTimeString();
+      } catch(e) {}
+    }
+
+    async function loadLog() {
+      try {
+        const res = await fetch('/api/cables/scan-log');
+        if (!res.ok) return;
+        const log = await res.json();
+        renderLog(log);
+      } catch(e) {}
+    }
+
+    // ── Stats ────────────────────────────────────────────────────
+    function updateStats(plots) {
+      let ok = 0, warn = 0, crit = 0;
+      plots.forEach(p => {
+        const state = plotState(p);
+        if (state === 'ok')                             ok++;
+        else if (state === 'low' || state === 'refilled') warn++;
+        else                                            crit++;
+      });
+      document.getElementById('stat-total').textContent   = plots.length;
+      document.getElementById('stat-ok').textContent      = ok;
+      document.getElementById('stat-warning').textContent = warn;
+      document.getElementById('stat-empty').textContent   = crit;
+    }
+
+    // Determine display state for a plot
+    function plotState(p) {
+      if (p.ir_status === 'empty')                                return 'empty';
+      if (p.ir_status === 'low')                                  return 'low';
+      if (p.current_cable_type && p.expected_cable_type &&
+          p.current_cable_type !== p.expected_cable_type)         return 'wrong';
+      if (p.ir_status === 'refilled' && !p.current_cable_type)    return 'refilled';
+      if (!p.expected_cable_type)                                  return 'no_config';
+      return 'ok';
+    }
+
+    // ── Render plots table ───────────────────────────────────────
+    function renderPlots(plots) {
+      const tbody = document.getElementById('plots-tbody');
+      if (!plots.length) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-gray-400">No plots found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = plots.map(p => {
+        const state = plotState(p);
+
+        // Row CSS
+        const rowCls = {
+          ok:        'row-ok',
+          wrong:     'row-wrong',
+          low:       'row-low',
+          empty:     'row-empty',
+          refilled:  'row-refilled',
+          no_config: 'row-no-expected',
+        }[state] || '';
+
+        // IR badge
+        const irBadge = {
+          ok:       '<span class="badge badge-ok">OK</span>',
+          low:      '<span class="badge badge-low">LOW ⚠</span>',
+          empty:    '<span class="badge badge-empty">EMPTY 🚨</span>',
+          refilled: '<span class="badge badge-refilled">REFILLED 🔵</span>',
+        }[p.ir_status] || `<span class="badge badge-no-config">${p.ir_status}</span>`;
+
+        // Cable match badge
+        let matchBadge = '<span class="badge badge-no-config">No scan</span>';
+        if (p.current_cable_type && p.expected_cable_type) {
+          matchBadge = p.current_cable_type === p.expected_cable_type
+            ? '<span class="badge badge-ok">✅ Match</span>'
+            : '<span class="badge badge-wrong">❌ Mismatch</span>';
+        } else if (p.current_cable_type && !p.expected_cable_type) {
+          matchBadge = '<span class="badge badge-no-config">Not configured</span>';
+        }
+
+        // Overall alert badge
+        const alertBadge = {
+          ok:        '<span class="badge badge-ok">✅ OK</span>',
+          wrong:     '<span class="badge badge-wrong">❌ Wrong Type</span>',
+          low:       '<span class="badge badge-low">⚠ Low</span>',
+          empty:     '<span class="badge badge-empty">🚨 EMPTY</span>',
+          refilled:  '<span class="badge badge-refilled">🔵 Refilled</span>',
+          no_config: '<span class="badge badge-no-config">⚙ Not Set</span>',
+        }[state] || '';
+
+        // Expected type cell — editable for admin
+        const expectedCell = isAdmin
+          ? `<span class="editable-cell" contenteditable="true"
+               data-plot-id="${p.id}" data-field="expected_cable_type"
+               onblur="saveExpected(this)"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+             >${esc(p.expected_cable_type || '')}</span>`
+          : `<span class="font-semibold">${esc(p.expected_cable_type || '—')}</span>`;
+
+        // IR test buttons (admin only, for testing without hardware)
+        const irTestCell = isAdmin
+          ? `<div class="flex gap-1 justify-center flex-wrap">
+               <button onclick="sendIR(${p.id},'low')"
+                 class="px-2 py-1 bg-yellow-400 text-yellow-900 rounded text-xs font-bold hover:bg-yellow-500">Low</button>
+               <button onclick="sendIR(${p.id},'refilled')"
+                 class="px-2 py-1 bg-blue-400 text-blue-900 rounded text-xs font-bold hover:bg-blue-500">Refill</button>
+               <button onclick="sendIR(${p.id},'empty')"
+                 class="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold hover:bg-red-600">Empty</button>
+             </div>`
+          : '';
+
+        return `<tr class="border-b border-gray-200 ${rowCls}">
+          <td class="border border-gray-300 px-3 py-2 font-bold text-center">${p.plot_number}</td>
+          <td class="border border-gray-300 px-3 py-2">${esc(p.line_name)}</td>
+          <td class="border border-gray-300 px-3 py-2 font-semibold">${esc(p.workstation_name)}</td>
+          <td class="border border-gray-300 px-3 py-2">${expectedCell}</td>
+          <td class="border border-gray-300 px-3 py-2 font-semibold">${esc(p.current_cable_type || '—')}</td>
+          <td class="border border-gray-300 px-3 py-2 text-center">${irBadge}</td>
+          <td class="border border-gray-300 px-3 py-2 text-center">${matchBadge}</td>
+          <td class="border border-gray-300 px-3 py-2 text-center text-gray-500">${p.last_scan_at ? p.last_scan_at.slice(0,16) : '—'}</td>
+          <td class="border border-gray-300 px-3 py-2 text-center">${alertBadge}</td>
+          <td class="border border-gray-300 px-3 py-2 text-center ${isAdmin ? '' : 'hidden'}">${irTestCell}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── Render scan log ──────────────────────────────────────────
+    function renderLog(entries) {
+      const tbody = document.getElementById('log-tbody');
+      if (!entries.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-gray-400">No scans yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = entries.map(e => {
+        const resultBadge = {
+          ok:          '<span class="badge badge-ok">✅ OK</span>',
+          wrong_type:  '<span class="badge badge-wrong">❌ Wrong</span>',
+          no_expected: '<span class="badge badge-no-config">⚙ No Config</span>',
+        }[e.result] || `<span class="badge badge-no-config">${e.result}</span>`;
+
+        const sourceBadge = e.source === 'camera'
+          ? '<span class="text-blue-600 font-semibold">📷 Camera</span>'
+          : `<span class="text-gray-600 font-semibold">📡 ${e.source}</span>`;
+
+        return `<tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="border border-gray-200 px-3 py-2 text-gray-500">${(e.scanned_at||'').slice(0,16)}</td>
+          <td class="border border-gray-200 px-3 py-2 font-semibold">${esc(e.workstation_name)}</td>
+          <td class="border border-gray-200 px-3 py-2 text-center">${e.plot_number}</td>
+          <td class="border border-gray-200 px-3 py-2 font-bold">${esc(e.cable_type)}</td>
+          <td class="border border-gray-200 px-3 py-2 text-center">${sourceBadge}</td>
+          <td class="border border-gray-200 px-3 py-2 text-center">${resultBadge}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── Admin: save expected cable type ──────────────────────────
+    async function saveExpected(el) {
+      const plotId = el.dataset.plotId;
+      const val    = el.textContent.trim();
+      try {
+        const res = await fetch(`/api/cables/plots/${plotId}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ expected_cable_type: val })
+        });
+        if (res.ok) {
+          el.style.borderColor = '#16a34a';
+          setTimeout(() => { el.style.borderColor = ''; loadPlots(); }, 800);
+        }
+      } catch(e) {}
+    }
+
+    // ── Admin: send manual IR event (testing) ───────────────────
+    async function sendIR(plotId, event) {
+      try {
+        const res = await fetch('/api/cables/ir', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ plot_id: plotId, event, source: 'manual' })
+        });
+        if (res.ok) loadPlots();
+      } catch(e) {}
+    }
+
+    // ── Camera Scan Modal ────────────────────────────────────────
+    async function openScanModal() {
+      scannedCode = null;
+      document.getElementById('scan-modal').classList.remove('hidden');
+      document.getElementById('scan-status').textContent = '📷 Point camera at cable barcode…';
+      document.getElementById('scan-result-card').classList.add('hidden');
+      document.getElementById('scan-confirm-btn').classList.add('hidden');
+      document.getElementById('scan-retry-btn').classList.add('hidden');
+
+      // Populate plot selector
+      const sel = document.getElementById('scan-plot-sel');
+      sel.innerHTML = '<option value="">— Select plot —</option>' +
+        allPlots.map(p =>
+          `<option value="${p.id}" data-expected="${esc(p.expected_cable_type || '')}">
+            ${esc(p.workstation_name)} · Plot ${p.plot_number}
+            (Expected: ${p.expected_cable_type || 'not set'})
+           </option>`
+        ).join('');
+
+      // Start camera
+      try {
+        scanStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: 640, height: 480 }
+        });
+        const video = document.getElementById('scan-video');
+        video.srcObject = scanStream;
+        await video.play();
+        startScanning();
+      } catch(e) {
+        document.getElementById('scan-status').textContent = '❌ Camera access denied. Check browser permissions.';
+      }
+    }
+
+    function startScanning() {
+      const video  = document.getElementById('scan-video');
+      const canvas = document.getElementById('scan-canvas');
+      const ctx    = canvas.getContext('2d');
+      scanInterval = setInterval(() => {
+        if (scannedCode) return;
+        if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const img  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+        if (code) {
+          scannedCode = code.data.trim();
+          showScanResult(scannedCode);
+        }
+      }, 200);
+    }
+
+    function showScanResult(cableType) {
+      clearInterval(scanInterval);
+      const sel      = document.getElementById('scan-plot-sel');
+      const opt      = sel.options[sel.selectedIndex];
+      const expected = opt ? (opt.dataset.expected || '') : '';
+
+      document.getElementById('scan-result-type').textContent = cableType;
+      const card   = document.getElementById('scan-result-card');
+      const msgEl  = document.getElementById('scan-result-msg');
+
+      if (!expected) {
+        card.className = 'rounded-xl p-3 text-center border-2 border-yellow-300 bg-yellow-50';
+        msgEl.textContent = '⚠ No expected type configured for this plot.';
+        msgEl.style.color = '#ca8a04';
+      } else if (cableType === expected) {
+        card.className = 'rounded-xl p-3 text-center border-2 border-green-400 bg-green-50';
+        msgEl.textContent = `✅ Correct! Matches expected: ${expected}`;
+        msgEl.style.color = '#16a34a';
+      } else {
+        card.className = 'rounded-xl p-3 text-center border-2 border-red-400 bg-red-50';
+        msgEl.textContent = `❌ Wrong type! Expected: ${expected}`;
+        msgEl.style.color = '#dc2626';
+      }
+
+      card.classList.remove('hidden');
+      document.getElementById('scan-confirm-btn').classList.remove('hidden');
+      document.getElementById('scan-retry-btn').classList.remove('hidden');
+      document.getElementById('scan-status').textContent = '✓ Barcode detected — confirm to record';
+    }
+
+    function retryMScan() {
+      scannedCode = null;
+      document.getElementById('scan-result-card').classList.add('hidden');
+      document.getElementById('scan-confirm-btn').classList.add('hidden');
+      document.getElementById('scan-retry-btn').classList.add('hidden');
+      document.getElementById('scan-status').textContent = '📷 Point camera at cable barcode…';
+      startScanning();
+    }
+
+    async function confirmScan() {
+      const plotId = document.getElementById('scan-plot-sel').value;
+      if (!plotId) {
+        document.getElementById('scan-status').textContent = '⚠ Please select a plot first.';
+        return;
+      }
+      if (!scannedCode) return;
+      try {
+        const res = await fetch('/api/cables/scan', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ plot_id: parseInt(plotId), cable_type: scannedCode, source: 'camera' })
+        });
+        const data = await res.json();
+        closeScanModal();
+        loadPlots();
+        loadLog();
+        // Show brief result overlay
+        if (data.alert) alert(data.alert);
+      } catch(e) {
+        document.getElementById('scan-status').textContent = '❌ Error sending scan. Try again.';
+      }
+    }
+
+    function closeScanModal() {
+      clearInterval(scanInterval);
+      if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+      scannedCode = null;
+      document.getElementById('scan-modal').classList.add('hidden');
+      const v = document.getElementById('scan-video');
+      if (v) v.srcObject = null;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────
+    function esc(s) {
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Init ─────────────────────────────────────────────────────
+    checkAuth().then(user => {
+      if (!checkPermission(user, 'cables')) return;
+      buildSidebar('/cables', user);
+      const el = document.getElementById('sidebar-user');
+      if (el) el.textContent = user.full_name || '';
+
+      isAdmin = user.role === 'admin';
+
+      // Show IR test column header + scan button for admins
+      if (isAdmin) {
+        document.getElementById('th-ir-test').classList.remove('hidden');
+        document.getElementById('scan-btn').classList.remove('hidden');
+      }
+
+      // Initial load
+      loadPlots();
+      loadLog();
+
+      // Auto-refresh every 5 seconds
+      refreshId = setInterval(() => { loadPlots(); loadLog(); }, 5000);
+    });
+  </script>
+</body>
+</html>

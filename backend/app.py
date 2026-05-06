@@ -8,6 +8,8 @@ from database import init_db
 from auth import auth_bp 
 from table_api import table_bp
 from data_collection_api import dc_bp
+from cables_api import cables_bp
+app.register_blueprint(cables_bp)
 app.register_blueprint(dc_bp)
 
 
@@ -67,6 +69,10 @@ def admin():
 def health():
     return jsonify({"status": "ok"})
 
+
+@app.route('/cables')
+def cables_page():
+    return render_template('cables.html')
 if __name__ == '__main__':
     init_db()
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

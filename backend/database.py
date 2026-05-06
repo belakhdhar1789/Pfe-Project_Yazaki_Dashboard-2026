@@ -180,6 +180,73 @@ def init_db():
             (json.dumps(default_data),)
         )
 
+    # ── Plots table (cable monitoring) ──────────────────────────
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS plots (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            line_name           TEXT NOT NULL DEFAULT 'Line A',
+            workstation_name    TEXT NOT NULL,
+            plot_number         INTEGER NOT NULL,
+            expected_cable_type TEXT DEFAULT '',
+            current_cable_type  TEXT DEFAULT '',
+            ir_status           TEXT DEFAULT 'ok',
+            low_since           TEXT DEFAULT '',
+            last_scan_at        TEXT DEFAULT '',
+            updated_at          TEXT DEFAULT (datetime('now'))
+        )
+    ''')
+
+    # ── Scan log table ───────────────────────────────────────────
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS scan_log (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            plot_id     INTEGER NOT NULL,
+            cable_type  TEXT NOT NULL,
+            source      TEXT DEFAULT 'camera',
+            result      TEXT NOT NULL,
+            scanned_at  TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY(plot_id) REFERENCES plots(id)
+        )
+    ''')
+
+    # ── IR event log table ───────────────────────────────────────
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS ir_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            plot_id    INTEGER NOT NULL,
+            event      TEXT NOT NULL,
+            source     TEXT DEFAULT 'sensor',
+            logged_at  TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY(plot_id) REFERENCES plots(id)
+        )
+    ''')
+
+    # Seed 16 plots across 10 workstations
+    cursor.execute("SELECT COUNT(*) FROM plots")
+    if cursor.fetchone()[0] == 0:
+        _plots = [
+            ('Line A', 'WS-1',  1),
+            ('Line A', 'WS-1',  2),
+            ('Line A', 'WS-2',  3),
+            ('Line A', 'WS-2',  4),
+            ('Line A', 'WS-3',  5),
+            ('Line A', 'WS-4',  6),
+            ('Line A', 'WS-4',  7),
+            ('Line B', 'WS-5',  8),
+            ('Line B', 'WS-5',  9),
+            ('Line B', 'WS-6',  10),
+            ('Line B', 'WS-7',  11),
+            ('Line B', 'WS-7',  12),
+            ('Line B', 'WS-8',  13),
+            ('Line B', 'WS-9',  14),
+            ('Line B', 'WS-9',  15),
+            ('Line B', 'WS-10', 16),
+        ]
+        cursor.executemany(
+            "INSERT INTO plots (line_name, workstation_name, plot_number) VALUES (?, ?, ?)",
+            _plots
+        )
+
     conn.commit()
     conn.close()
     print("[DB] Database initialized successfully.")

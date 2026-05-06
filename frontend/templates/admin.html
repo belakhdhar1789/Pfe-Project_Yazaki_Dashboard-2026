@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Panel — Yazaki</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="/static/sidebar.js"></script>
   <style>
     body { font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; }
@@ -131,6 +132,16 @@
       </button>
     </div>
 
+    <!-- Scan Cable button -->
+    <div class="px-5 pb-3">
+      <button onclick="openScanModal()"
+        class="w-full border-2 rounded-xl p-4 text-center font-bold text-base transition-all duration-200 hover:shadow-lg
+               bg-gradient-to-r from-blue-600 to-blue-800 text-white border-blue-900 shadow-md flex items-center justify-center gap-2">
+        <span>📷</span>
+        <span id="label-scan">Scan Cable</span>
+      </button>
+    </div>
+
     <!-- Language toggle -->
     <div class="p-5 border-t-2 border-gray-300">
       <p class="text-gray-800 text-sm font-bold mb-2 text-center">Language / Langue</p>
@@ -240,6 +251,55 @@
 
     </div><!-- end scrollable body -->
   </div><!-- end main -->
+
+  <!-- ── Cable Scan Modal ── -->
+  <div id="scan-modal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+      <div class="bg-gradient-to-r from-blue-600 to-blue-900 text-white rounded-t-2xl px-5 py-4 flex justify-between items-center">
+        <h2 class="text-lg font-bold">📷 Scan Cable Barcode</h2>
+        <button onclick="closeScanModal()" class="text-white hover:text-gray-200 text-2xl font-bold leading-none">&times;</button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="text-sm font-bold text-gray-700 block mb-1">Select Plot to verify:</label>
+          <select id="scan-plot-sel"
+            class="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-600 focus:outline-none">
+            <option value="">Loading plots…</option>
+          </select>
+        </div>
+        <div class="relative bg-black rounded-lg overflow-hidden" style="height:220px;">
+          <video id="scan-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+          <canvas id="scan-canvas" class="hidden"></canvas>
+          <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div class="border-2 border-blue-400 rounded-lg opacity-70"
+                 style="width:200px;height:110px;box-shadow:0 0 0 9999px rgba(0,0,0,0.35);"></div>
+          </div>
+        </div>
+        <div id="scan-status" class="text-center text-sm font-semibold text-gray-500 py-1">
+          📷 Point camera at cable barcode…
+        </div>
+        <div id="scan-result-card" class="hidden rounded-xl p-3 text-center border-2">
+          <div class="text-xs text-gray-500 mb-1">Detected cable type</div>
+          <div id="scan-result-type" class="text-xl font-bold mb-1 text-gray-900"></div>
+          <div id="scan-result-msg" class="text-sm font-semibold"></div>
+        </div>
+        <div class="flex gap-3">
+          <button id="scan-confirm-btn" onclick="confirmScan()"
+            class="hidden flex-1 bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition-colors">
+            ✓ Confirm &amp; Send
+          </button>
+          <button id="scan-retry-btn" onclick="retryScan()"
+            class="hidden flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors">
+            ↺ Retry
+          </button>
+          <button onclick="closeScanModal()"
+            class="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Toast notification ── -->
   <div id="toast" class="fixed bottom-6 right-6 hidden z-50">
@@ -598,6 +658,133 @@
     // ── Helpers ───────────────────────────────────────────────
     function esc(str) {
       return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Cable Scan Modal ─────────────────────────────────────────
+    let scanStream   = null;
+    let scanInterval = null;
+    let scannedCode  = null;
+
+    async function openScanModal() {
+      scannedCode = null;
+      document.getElementById('scan-modal').classList.remove('hidden');
+      document.getElementById('scan-status').textContent = '📷 Point camera at cable barcode…';
+      document.getElementById('scan-result-card').classList.add('hidden');
+      document.getElementById('scan-confirm-btn').classList.add('hidden');
+      document.getElementById('scan-retry-btn').classList.add('hidden');
+
+      // Load plots into selector
+      const sel = document.getElementById('scan-plot-sel');
+      sel.innerHTML = '<option value="">Loading…</option>';
+      try {
+        const res = await fetch('/api/cables/plots');
+        if (res.ok) {
+          const plots = await res.json();
+          sel.innerHTML = '<option value="">— Select plot —</option>' +
+            plots.map(p =>
+              `<option value="${p.id}" data-expected="${String(p.expected_cable_type||'').replace(/"/g,'&quot;')}">` +
+              `${p.workstation_name} · Plot ${p.plot_number} ` +
+              `(Expected: ${p.expected_cable_type || 'not set'})</option>`
+            ).join('');
+        }
+      } catch(e) { sel.innerHTML = '<option value="">Error loading plots</option>'; }
+
+      // Start camera
+      try {
+        scanStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: 640, height: 480 }
+        });
+        const video = document.getElementById('scan-video');
+        video.srcObject = scanStream;
+        await video.play();
+        startScanLoop();
+      } catch(e) {
+        document.getElementById('scan-status').textContent = '❌ Camera access denied.';
+      }
+    }
+
+    function startScanLoop() {
+      const video  = document.getElementById('scan-video');
+      const canvas = document.getElementById('scan-canvas');
+      const ctx    = canvas.getContext('2d');
+      scanInterval = setInterval(() => {
+        if (scannedCode) return;
+        if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const img  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+        if (code) { scannedCode = code.data.trim(); showScanResult(scannedCode); }
+      }, 200);
+    }
+
+    function showScanResult(cableType) {
+      clearInterval(scanInterval);
+      const sel      = document.getElementById('scan-plot-sel');
+      const opt      = sel.options[sel.selectedIndex];
+      const expected = opt ? (opt.dataset.expected || '') : '';
+
+      document.getElementById('scan-result-type').textContent = cableType;
+      const card  = document.getElementById('scan-result-card');
+      const msgEl = document.getElementById('scan-result-msg');
+
+      if (!expected) {
+        card.className = 'rounded-xl p-3 text-center border-2 border-yellow-300 bg-yellow-50';
+        msgEl.textContent = '⚠ No expected type configured for this plot.';
+        msgEl.style.color = '#ca8a04';
+      } else if (cableType === expected) {
+        card.className = 'rounded-xl p-3 text-center border-2 border-green-400 bg-green-50';
+        msgEl.textContent = `✅ Correct! Matches: ${expected}`;
+        msgEl.style.color = '#16a34a';
+      } else {
+        card.className = 'rounded-xl p-3 text-center border-2 border-red-400 bg-red-50';
+        msgEl.textContent = `❌ Wrong type! Expected: ${expected}`;
+        msgEl.style.color = '#dc2626';
+      }
+      card.classList.remove('hidden');
+      document.getElementById('scan-confirm-btn').classList.remove('hidden');
+      document.getElementById('scan-retry-btn').classList.remove('hidden');
+      document.getElementById('scan-status').textContent = '✓ Barcode detected — confirm to record';
+    }
+
+    function retryScan() {
+      scannedCode = null;
+      document.getElementById('scan-result-card').classList.add('hidden');
+      document.getElementById('scan-confirm-btn').classList.add('hidden');
+      document.getElementById('scan-retry-btn').classList.add('hidden');
+      document.getElementById('scan-status').textContent = '📷 Point camera at cable barcode…';
+      startScanLoop();
+    }
+
+    async function confirmScan() {
+      const plotId = document.getElementById('scan-plot-sel').value;
+      if (!plotId) {
+        document.getElementById('scan-status').textContent = '⚠ Please select a plot first.';
+        return;
+      }
+      if (!scannedCode) return;
+      try {
+        const res = await fetch('/api/cables/scan', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ plot_id: parseInt(plotId), cable_type: scannedCode, source: 'camera' })
+        });
+        const data = await res.json();
+        closeScanModal();
+        showToast(data.alert || 'Scan recorded.');
+      } catch(e) {
+        document.getElementById('scan-status').textContent = '❌ Error. Try again.';
+      }
+    }
+
+    function closeScanModal() {
+      clearInterval(scanInterval);
+      if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+      scannedCode = null;
+      document.getElementById('scan-modal').classList.add('hidden');
+      const v = document.getElementById('scan-video');
+      if (v) v.srcObject = null;
     }
 
     // ── Init ─────────────────────────────────────────────────
